@@ -61,7 +61,7 @@
 		<maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
 		<maven.compiler.release>21</maven.compiler.release>
 		<!-- lowest supported Maven line; the plugin is compiled against its API -->
-		<maven.version>3.9.16</maven.version>
+		<maven.version>3.10.0</maven.version>
 		<project.build.outputTimestamp>2026-10-21T00:00:00Z</project.build.outputTimestamp>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
