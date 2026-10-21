@@ -25,3 +25,10 @@ updates:
     commit-message:
       include: "scope"
       prefix: "chore"
+    ignore:
+      # maven.version is the Maven API the plugin is compiled against, i.e. the lowest supported Maven line;
+      # only take patch updates, raising the line is a deliberate decision (with <prerequisites> and the enforcer rule)
+      - dependency-name: "org.apache.maven:maven-plugin-api"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "org.apache.maven:maven-core"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
