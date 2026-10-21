@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,19 +85,27 @@ class CheckerTest {
 	Path tmp;
 
 	private final Map<Gav, Path> jars = new HashMap<>();
-	private final List<Upstream> upstreams = new java.util.ArrayList<>();
+	private final List<Gav> resolvedSources = new ArrayList<>();
+	private final List<Upstream> upstreams = new ArrayList<>();
+	private final List<Dependency> dependencies = new ArrayList<>();
 
 	@BeforeEach
 	void setUp() throws IOException {
-		jars.put(new Gav("g", "a", "1"), jar("a-1", Map.of("up/Foo.java", V1)));
-		jars.put(new Gav("g", "a", "2"), jar("a-2", Map.of("up/Foo.java", V2)));
-		jars.put(new Gav("org.keycloak", "kc-other", "2"), jar("other-2", Map.of("kc/Other.java", "package kc; class Other {}")));
-		jars.put(new Gav("org.keycloak", "kc-core", "1"), jar("kc-1", Map.of("kc/Core.java", "package kc; class Core { int x; }")));
-		jars.put(new Gav("org.keycloak", "kc-core", "2"), jar("kc-2", Map.of("kc/Core.java", "package kc; class Core { long x; }")));
+		jars.put(new Gav("g", "a", "1"), jar("a-1-sources", Map.of("up/Foo.java", V1)));
+		jars.put(new Gav("g", "a", "2"), jar("a-2-sources", Map.of("up/Foo.java", V2)));
+		jars.put(new Gav("org.keycloak", "kc-other", "2"), jar("other-2-sources", Map.of("kc/Other.java", "package kc; class Other {}")));
+		jars.put(new Gav("org.keycloak", "kc-core", "1"), jar("kc-1-sources", Map.of("kc/Core.java", "package kc; class Core { int x; }")));
+		jars.put(new Gav("org.keycloak", "kc-core", "2"), jar("kc-2-sources", Map.of("kc/Core.java",
+			"package kc; class Core { long x; static class Nested {} }")));
+
+		dependencies.add(new Dependency(new Gav("g", "a", "2"), jar("a-2", Map.of("up/Foo.class", ""))));
+		dependencies.add(new Dependency(new Gav("org.keycloak", "kc-core", "2"),
+			jar("kc-2", Map.of("kc/Core.class", "", "kc/Core$Nested.class", ""))));
+		dependencies.add(new Dependency(new Gav("org.keycloak", "kc-other", "2"), jar("other-2", Map.of("kc/Other.class", ""))));
 	}
 
 	private Path jar(String name, Map<String, String> entries) throws IOException {
-		Path jar = tmp.resolve(name + "-sources.jar");
+		Path jar = tmp.resolve(name + ".jar");
 		try (OutputStream out = Files.newOutputStream(jar); ZipOutputStream zip = new ZipOutputStream(out)) {
 			for (var entry : entries.entrySet()) {
 				zip.putNextEntry(new ZipEntry(entry.getKey()));
@@ -117,10 +126,12 @@ class CheckerTest {
 			attributes.put("artifact", artifact);
 		}
 		var element = new AnnotatedElement(kind, Path.of("Local.java"), 1, "Local", defaultMember, attributes, List.of());
-		var dependencies = List.of(new Gav("g", "a", "2"), new Gav("org.keycloak", "kc-other", "2"),
-			new Gav("org.keycloak", "kc-core", "2"));
-		var checker = new Checker(gav -> Optional.ofNullable(jars.get(gav)), new VersionResolver(upstreams, dependencies, List.of()),
-			dependencies, true);
+		Checker.SourcesResolver resolver = gav -> {
+			resolvedSources.add(gav);
+			return Optional.ofNullable(jars.get(gav));
+		};
+		var checker = new Checker(resolver,
+			new VersionResolver(upstreams, dependencies.stream().map(Dependency::gav).toList(), List.of()), dependencies, true);
 		return checker.check(element);
 	}
 
@@ -208,6 +219,28 @@ class CheckerTest {
 		var result = check(AnnotatedElement.Kind.KEYCLOAK, null, "kc.Core#x", "1", null);
 		assertThat(result.status()).isEqualTo(Status.CHANGED);
 		assertThat(result.upstream()).startsWith("org.keycloak:kc-core ");
+	}
+
+	@Test
+	void artifactDetectionOnlyResolvesTheMatchingSources() {
+		var result = check(AnnotatedElement.Kind.KEYCLOAK, null, "kc.Other", "2", null);
+		assertThat(result.status()).isEqualTo(Status.UNCHANGED);
+		assertThat(resolvedSources).containsExactly(new Gav("org.keycloak", "kc-other", "2"));
+	}
+
+	@Test
+	void artifactDetectionFindsNestedClasses() {
+		var result = check(AnnotatedElement.Kind.KEYCLOAK, null, "kc.Core.Nested", "2", null);
+		assertThat(result.status()).isEqualTo(Status.UNCHANGED);
+		assertThat(result.upstream()).startsWith("org.keycloak:kc-core ");
+	}
+
+	@Test
+	void artifactDetectionFallsBackToSourcesWithoutResolvedFile() {
+		dependencies.replaceAll(d -> new Dependency(d.gav(), null));
+		var result = check(AnnotatedElement.Kind.KEYCLOAK, null, "kc.Other", "2", null);
+		assertThat(result.status()).isEqualTo(Status.UNCHANGED);
+		assertThat(resolvedSources).contains(new Gav("org.keycloak", "kc-core", "2"), new Gav("org.keycloak", "kc-other", "2"));
 	}
 
 	@Test

@@ -28,7 +28,7 @@ class Checker {
 
 	private final SourcesResolver sourcesResolver;
 	private final VersionResolver versionResolver;
-	private final List<Gav> dependencies;
+	private final List<Dependency> dependencies;
 	private final UpstreamSources upstreamSources = new UpstreamSources();
 	private final CodeNormalizer normalizer;
 	private final Map<Gav, Optional<Path>> jars = new HashMap<>();
@@ -36,7 +36,7 @@ class Checker {
 	/**
 	 * @param dependencies the project's resolved dependencies, searched when a reference does not name its artifactId
 	 */
-	Checker(SourcesResolver sourcesResolver, VersionResolver versionResolver, List<Gav> dependencies, boolean ignoreComments) {
+	Checker(SourcesResolver sourcesResolver, VersionResolver versionResolver, List<Dependency> dependencies, boolean ignoreComments) {
 		this.sourcesResolver = sourcesResolver;
 		this.versionResolver = versionResolver;
 		this.dependencies = List.copyOf(dependencies);
@@ -112,12 +112,19 @@ class Checker {
 			+ current.version() + "\"", diff);
 	}
 
+	/**
+	 * Looks for the type's class file in the already resolved dependency jars, so that only the matching sources jar has to be
+	 * downloaded. Sources are only searched for dependencies without a resolved file.
+	 */
 	private Optional<String> detectArtifactId(CopiedCodeReference ref) {
+		String typeName = ref.source().typeName();
 		return dependencies.stream()
-			.filter(d -> d.groupId().equals(ref.groupId()))
-			.sorted(Comparator.comparing(Gav::artifactId))
-			.filter(d -> sources(d).filter(jar -> upstreamSources.containsType(jar, ref.source().typeName())).isPresent())
-			.map(Gav::artifactId)
+			.filter(d -> d.gav().groupId().equals(ref.groupId()))
+			.sorted(Comparator.comparing(d -> d.gav().artifactId()))
+			.filter(d -> d.file() != null
+				? UpstreamSources.containsClass(d.file(), typeName)
+				: sources(d.gav()).filter(jar -> UpstreamSources.containsType(jar, typeName)).isPresent())
+			.map(d -> d.gav().artifactId())
 			.findFirst();
 	}
 

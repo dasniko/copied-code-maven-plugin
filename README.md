@@ -71,7 +71,7 @@ Nested types are written as `a.b.Foo.Inner`.
 
 - `@CopiedFrom`: required, `groupId:artifactId`.
 - `@CopiedFromKeycloak`: optional, the artifactId only (groupId is `org.keycloak`). If empty, the plugin searches the project's
-  `org.keycloak` dependencies for the type.
+  `org.keycloak` dependencies for the type's class file, and only downloads the sources of the dependency that contains it.
 
 ## Plugin configuration
 
@@ -143,6 +143,11 @@ Example output:
     +    return "Hello, " + name + "!";
      }
 ```
+
+The diff is computed on the *normalized* upstream code, the same form that is compared: re-printed by JavaParser with its
+own indentation and line breaks (long lines are not wrapped), and without comments and Javadoc unless `ignoreComments` is
+`false`. That is what keeps formatting-only upstream changes from being reported, but it means the diff does not look exactly
+like the upstream file. Open the upstream source at both versions if you need the original layout or comments.
 
 ## Requirements
 

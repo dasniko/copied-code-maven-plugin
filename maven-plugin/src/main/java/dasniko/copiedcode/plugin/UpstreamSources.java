@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -41,9 +42,23 @@ class UpstreamSources {
 	/**
 	 * Whether the jar contains the source file of the type.
 	 */
-	boolean containsType(Path sourcesJar, String typeName) {
-		try (ZipFile zip = new ZipFile(sourcesJar.toFile())) {
-			return candidates(typeName).stream().anyMatch(c -> zip.getEntry(c.entry()) != null);
+	static boolean containsType(Path sourcesJar, String typeName) {
+		return containsAny(sourcesJar, candidates(typeName).stream().map(Candidate::entry).toList());
+	}
+
+	/**
+	 * Whether the binary jar or classes directory contains the class file of the type.
+	 */
+	static boolean containsClass(Path binary, String typeName) {
+		return containsAny(binary, candidates(typeName).stream().map(Candidate::classEntry).toList());
+	}
+
+	private static boolean containsAny(Path jarOrDirectory, List<String> entries) {
+		if (Files.isDirectory(jarOrDirectory)) {
+			return entries.stream().anyMatch(e -> Files.isRegularFile(jarOrDirectory.resolve(e)));
+		}
+		try (ZipFile zip = new ZipFile(jarOrDirectory.toFile())) {
+			return entries.stream().anyMatch(e -> zip.getEntry(e) != null);
 		} catch (IOException e) {
 			return false;
 		}
@@ -131,6 +146,14 @@ class UpstreamSources {
 	}
 
 	private record Candidate(String entry, List<String> typePath) {
+
+		/**
+		 * Class file of the (possibly nested) type, e.g. {@code a/b/Outer$Inner.class}.
+		 */
+		String classEntry() {
+			return entry.substring(0, entry.length() - ".java".length())
+				+ typePath.subList(1, typePath.size()).stream().map(n -> "$" + n).collect(Collectors.joining()) + ".class";
+		}
 	}
 
 	/**

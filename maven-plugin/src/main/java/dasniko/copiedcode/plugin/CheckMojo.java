@@ -118,8 +118,9 @@ public class CheckMojo extends AbstractMojo {
 			return;
 		}
 
-		List<Gav> dependencies = project.getArtifacts().stream()
-			.map(a -> new Gav(a.getGroupId(), a.getArtifactId(), a.getBaseVersion()))
+		List<Dependency> dependencies = project.getArtifacts().stream()
+			.map(a -> new Dependency(new Gav(a.getGroupId(), a.getArtifactId(), a.getBaseVersion()),
+				a.getFile() == null ? null : a.getFile().toPath()))
 			.toList();
 		List<Gav> managed = Optional.ofNullable(project.getDependencyManagement())
 			.map(DependencyManagement::getDependencies)
@@ -127,8 +128,8 @@ public class CheckMojo extends AbstractMojo {
 			.stream()
 			.map(d -> new Gav(d.getGroupId(), d.getArtifactId(), d.getVersion()))
 			.toList();
-		Checker checker = new Checker(this::resolveSources, new VersionResolver(upstreams, dependencies, managed), dependencies,
-			ignoreComments);
+		Checker checker = new Checker(this::resolveSources,
+			new VersionResolver(upstreams, dependencies.stream().map(Dependency::gav).toList(), managed), dependencies, ignoreComments);
 
 		prepareDiffOutputDirectory();
 		Map<Status, Integer> counts = new EnumMap<>(Status.class);
