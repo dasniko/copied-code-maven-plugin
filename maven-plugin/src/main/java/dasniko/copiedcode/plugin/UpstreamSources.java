@@ -122,10 +122,15 @@ class UpstreamSources {
 			List<? extends CallableDeclaration<?>> callables = member.isConstructor()
 				? type.getConstructors()
 				: type.getMethodsByName(member.name());
-			return callables.stream()
+			List<? extends CallableDeclaration<?>> matching = callables.stream()
 				.filter(c -> TypeNames.of(c.getParameters()).equals(member.parameterTypes()))
-				.<Node>map(c -> c)
-				.findFirst();
+				.toList();
+			if (matching.size() > 1) {
+				throw new InvalidReferenceException(matching.size() + " overloads of '" + member.describe(type.getNameAsString())
+					+ "' in " + type.getNameAsString() + " differ only in packages or generics of their parameter types, which source"
+					+ " cannot tell apart; reference the whole type instead");
+			}
+			return matching.stream().<Node>map(c -> c).findFirst();
 		}
 
 		Optional<Node> field = type.getFields().stream()

@@ -44,6 +44,12 @@ class CheckerTest {
 			public void gone() {
 			}
 
+			public void at(java.util.Date date) {
+			}
+
+			public void at(java.sql.Date date) {
+			}
+
 			public static class Inner {
 				public Inner(String s) {
 				}
@@ -76,6 +82,12 @@ class CheckerTest {
 
 			public String name(String prefix) {
 				return prefix + "foo";
+			}
+
+			public void at(java.util.Date date) {
+			}
+
+			public void at(java.sql.Date date) {
 			}
 
 			public static class Inner {
@@ -208,6 +220,13 @@ class CheckerTest {
 		var result = check("up.Foo#add", null);
 		assertThat(result.status()).isEqualTo(Status.INVALID);
 		assertThat(result.message()).contains("overloaded", "add(int, int)");
+	}
+
+	@Test
+	void overloadsOnlyDifferingInPackagesAreInvalid() {
+		var result = check("up.Foo#at(Date)", null);
+		assertThat(result.status()).isEqualTo(Status.INVALID);
+		assertThat(result.message()).contains("2 overloads of 'at(Date)'", "reference the whole type");
 	}
 
 	@Test

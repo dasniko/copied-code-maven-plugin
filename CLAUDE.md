@@ -37,6 +37,8 @@ holds what the code does not tell you.
 - `INVALID` always fails the build; it is a broken annotation, not upstream drift.
 - A reference that is unambiguous at the baseline but ambiguous at the current version (new overload) is `CHANGED`, not
   `INVALID`: it is upstream drift, so `onChanged` applies. The diff is taken against the overload with the baseline's signature.
+- Overloads whose parameter types normalize to the same simple names (`java.util.Date`/`java.sql.Date`) cannot be told apart by
+  `source`; that is `INVALID` rather than silently comparing the first match.
 
 ## Testing
 
