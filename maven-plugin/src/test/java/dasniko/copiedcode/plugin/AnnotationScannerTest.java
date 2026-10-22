@@ -2,7 +2,11 @@ package dasniko.copiedcode.plugin;
 
 import com.github.javaparser.StaticJavaParser;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +20,23 @@ class AnnotationScannerTest {
 
 	private static List<AnnotatedElement> scan(String source) {
 		return new AnnotationScanner().scan(FILE, StaticJavaParser.parse(source));
+	}
+
+	@TempDir
+	Path tmp;
+
+	@Test
+	void readsSourcesInTheGivenEncoding() throws IOException {
+		Files.writeString(tmp.resolve("A.java"), """
+			import dasniko.copiedcode.CopiedFromKeycloak;
+			// Grüße
+			class A {
+				@CopiedFromKeycloak(source = "org.keycloak.Foo", version = "26.0.0") void a() {}
+			}
+			""", StandardCharsets.ISO_8859_1);
+		assertThat(new AnnotationScanner().scan(List.of(tmp), StandardCharsets.ISO_8859_1).elements()).hasSize(1);
+		// undecodable bytes are replaced, the annotations are still found
+		assertThat(new AnnotationScanner().scan(List.of(tmp), StandardCharsets.UTF_8).elements()).hasSize(1);
 	}
 
 	@Test

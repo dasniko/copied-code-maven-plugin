@@ -109,6 +109,7 @@ The goal `check` binds to `verify` by default.
 | `onUnresolvable` | `copied-code.onUnresolvable` | `FAIL` | `FAIL`, `WARN` or `IGNORE` |
 | `ignoreComments` | `copied-code.ignoreComments` | `true` | Ignore comment and Javadoc changes upstream |
 | `includeTestSources` | `copied-code.includeTestSources` | `true` | Scan test sources, too |
+| `encoding` | `copied-code.encoding` | `${project.build.sourceEncoding}` | Encoding of the local sources, UTF-8 if not set |
 | `diffOutputDirectory` | `copied-code.diffOutputDirectory` | `${project.build.directory}/copied-code` | One `.diff` file per changed element |
 | `skip` | `copied-code.skip` | `false` | Skip the check |
 

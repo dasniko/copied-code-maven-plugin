@@ -18,6 +18,7 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.TextBlockLiteralExpr;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,7 +43,10 @@ class AnnotationScanner {
 	record Result(List<AnnotatedElement> elements, Map<Path, String> parseProblems) {
 	}
 
-	Result scan(List<Path> sourceRoots) throws IOException {
+	/**
+	 * @param encoding encoding of the source files; undecodable bytes are replaced, as the local code itself is never compared
+	 */
+	Result scan(List<Path> sourceRoots, Charset encoding) throws IOException {
 		List<AnnotatedElement> elements = new ArrayList<>();
 		Map<Path, String> problems = new HashMap<>();
 		for (Path root : sourceRoots) {
@@ -54,7 +58,7 @@ class AnnotationScanner {
 				files = walk.filter(p -> p.toString().endsWith(".java") && Files.isRegularFile(p)).sorted().toList();
 			}
 			for (Path file : files) {
-				String content = Files.readString(file);
+				String content = new String(Files.readAllBytes(file), encoding);
 				if (!content.contains(AnnotatedElement.Kind.GENERIC.simpleName())) {
 					continue; // cheap pre-filter, also matches CopiedFromKeycloak
 				}

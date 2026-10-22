@@ -19,6 +19,8 @@ import org.eclipse.aether.resolution.ArtifactResolutionException;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -78,6 +80,12 @@ public class CheckMojo extends AbstractMojo {
 	@Parameter(property = "copied-code.diffOutputDirectory", defaultValue = "${project.build.directory}/copied-code")
 	private File diffOutputDirectory;
 
+	/**
+	 * Encoding of the local source files, UTF-8 if not set.
+	 */
+	@Parameter(property = "copied-code.encoding", defaultValue = "${project.build.sourceEncoding}")
+	private String encoding;
+
 	@Parameter(property = "copied-code.skip", defaultValue = "false")
 	private boolean skip;
 
@@ -108,7 +116,7 @@ public class CheckMojo extends AbstractMojo {
 
 		AnnotationScanner.Result scan;
 		try {
-			scan = new AnnotationScanner().scan(sourceRoots);
+			scan = new AnnotationScanner().scan(sourceRoots, sourceEncoding());
 		} catch (IOException e) {
 			throw new MojoExecutionException("Cannot read sources", e);
 		}
@@ -146,6 +154,17 @@ public class CheckMojo extends AbstractMojo {
 		if (failures > 0) {
 			throw new MojoFailureException(failures + " copied code element(s) need attention, see the log above"
 				+ (counts.containsKey(Status.CHANGED) ? " and the diffs in " + diffOutputDirectory : ""));
+		}
+	}
+
+	private Charset sourceEncoding() throws MojoExecutionException {
+		if (encoding == null || encoding.isBlank()) {
+			return StandardCharsets.UTF_8;
+		}
+		try {
+			return Charset.forName(encoding);
+		} catch (IllegalArgumentException e) {
+			throw new MojoExecutionException("Unsupported encoding '" + encoding + "'", e);
 		}
 	}
 
