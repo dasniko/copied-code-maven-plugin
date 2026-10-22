@@ -25,9 +25,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -89,6 +92,12 @@ public class CheckMojo extends AbstractMojo {
 	@Parameter(property = "copied-code.skip", defaultValue = "false")
 	private boolean skip;
 
+	/**
+	 * Longer diff file names are shortened, to stay below the usual limit of 255 characters.
+	 */
+	private static final int MAX_DIFF_FILE_NAME = 200;
+
+	private final Set<String> diffFileNames = new HashSet<>();
 	private final MavenProject project;
 	private final MavenSession session;
 	private final RepositorySystem repositorySystem;
@@ -209,6 +218,7 @@ public class CheckMojo extends AbstractMojo {
 	}
 
 	private void prepareDiffOutputDirectory() throws MojoExecutionException {
+		diffFileNames.clear();
 		Path dir = diffOutputDirectory.toPath();
 		if (!Files.isDirectory(dir)) {
 			return;
@@ -223,13 +233,28 @@ public class CheckMojo extends AbstractMojo {
 	}
 
 	private void writeDiff(CheckResult result) throws MojoExecutionException {
-		Path file = diffOutputDirectory.toPath().resolve(result.localElement().replaceAll("[^\\w.#(),-]", "_") + ".diff");
+		Path file = diffOutputDirectory.toPath().resolve(diffFileName(result.localElement(), diffFileNames));
 		try {
 			Files.createDirectories(file.getParent());
 			Files.write(file, result.diff());
 		} catch (IOException e) {
 			throw new MojoExecutionException("Cannot write " + file, e);
 		}
+	}
+
+	/**
+	 * @param taken lower-cased names already used in this run, so that names stay unique on case-insensitive file systems, too
+	 */
+	static String diffFileName(String localElement, Set<String> taken) {
+		String base = localElement.replaceAll("[^\\w.#(),-]", "_");
+		if (base.length() > MAX_DIFF_FILE_NAME) {
+			base = base.substring(0, MAX_DIFF_FILE_NAME) + "-" + Integer.toHexString(localElement.hashCode());
+		}
+		String name = base;
+		for (int i = 2; !taken.add(name.toLowerCase(Locale.ROOT)); i++) {
+			name = base + "-" + i;
+		}
+		return name + ".diff";
 	}
 
 	private Optional<Path> resolveSources(Gav gav) {

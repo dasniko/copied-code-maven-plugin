@@ -46,6 +46,7 @@ holds what the code does not tell you.
   component, not an explicit accessor `x()`.
 - Of a multi-variable field declaration only the referenced variable is compared (a clone without the others), so changes to a
   sibling do not count, but shared modifiers, type and annotations do.
+- Diff file names are unique per run, also ignoring case (macOS/Windows), and shortened with a hash beyond 200 characters.
 
 ## Testing
 
