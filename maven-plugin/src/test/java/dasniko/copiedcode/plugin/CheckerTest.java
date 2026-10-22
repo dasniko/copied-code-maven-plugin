@@ -207,6 +207,16 @@ class CheckerTest {
 	}
 
 	@Test
+	void unreadableSourcesAreUnresolvable() throws IOException {
+		Path corrupt = Files.writeString(tmp.resolve("kc-3-sources.jar"), "not a jar");
+		jars.put(new Gav("org.keycloak", "kc-core", "3"), corrupt);
+		upstreams.add(upstream("org.keycloak", null, "3"));
+		var result = check(AnnotatedElement.Kind.KEYCLOAK, null, "kc.Core#x", "1", null);
+		assertThat(result.status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(result.message()).startsWith("cannot read kc-3-sources.jar");
+	}
+
+	@Test
 	void malformedAnnotationIsInvalid() {
 		assertThat(check(AnnotatedElement.Kind.GENERIC, "g", "up.Foo", "1", null).status()).isEqualTo(Status.INVALID);
 		assertThat(check(AnnotatedElement.Kind.KEYCLOAK, "org.keycloak:kc-core", "kc.Core", "1", null).status())

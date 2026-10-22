@@ -11,7 +11,6 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,7 +97,7 @@ class UpstreamSources {
 			}
 			return Optional.empty();
 		} catch (IOException e) {
-			throw new UncheckedIOException("cannot read " + sourcesJar, e);
+			throw new UpstreamException("cannot read " + sourcesJar.getFileName() + ": " + e.getMessage(), e);
 		}
 	}
 
@@ -172,6 +171,10 @@ class UpstreamSources {
 	static class UpstreamException extends RuntimeException {
 		UpstreamException(String message) {
 			super(message);
+		}
+
+		UpstreamException(String message, Throwable cause) {
+			super(message, cause);
 		}
 	}
 }
