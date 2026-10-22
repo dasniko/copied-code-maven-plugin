@@ -207,12 +207,13 @@ class CheckerTest {
 	}
 
 	@Test
-	void unreadableSourcesAreUnresolvable() throws IOException {
+	void unreadableSourcesAreUnresolvableAndNameTheDetectedArtifact() throws IOException {
 		Path corrupt = Files.writeString(tmp.resolve("kc-3-sources.jar"), "not a jar");
 		jars.put(new Gav("org.keycloak", "kc-core", "3"), corrupt);
 		upstreams.add(upstream("org.keycloak", null, "3"));
 		var result = check(AnnotatedElement.Kind.KEYCLOAK, null, "kc.Core#x", "1", null);
 		assertThat(result.status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(result.upstream()).isEqualTo("org.keycloak:kc-core kc.Core#x 1 -> 3");
 		assertThat(result.message()).startsWith("cannot read kc-3-sources.jar");
 	}
 

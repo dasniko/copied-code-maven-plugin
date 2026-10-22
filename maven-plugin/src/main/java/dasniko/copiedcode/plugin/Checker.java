@@ -50,13 +50,7 @@ class Checker {
 		} catch (InvalidReferenceException e) {
 			return new CheckResult(element.file(), element.line(), element.localElement(), "?", Status.INVALID, e.getMessage(), List.of());
 		}
-		try {
-			return check(ref);
-		} catch (InvalidReferenceException e) {
-			return result(ref, ref.upstreamArtifact() + " " + ref.source(), Status.INVALID, e.getMessage(), List.of());
-		} catch (UpstreamSources.UpstreamException e) {
-			return result(ref, ref.upstreamArtifact() + " " + ref.source(), Status.UNRESOLVABLE, e.getMessage(), List.of());
-		}
+		return check(ref);
 	}
 
 	private CheckResult check(CopiedCodeReference ref) {
@@ -79,7 +73,16 @@ class Checker {
 		Gav baseline = new Gav(ref.groupId(), artifactId, ref.version());
 		Gav current = new Gav(ref.groupId(), artifactId, currentVersion.get());
 		String upstream = upstreamArtifact + " " + ref.source() + " " + baseline.version() + " -> " + current.version();
+		try {
+			return compare(ref, upstream, baseline, current);
+		} catch (InvalidReferenceException e) {
+			return result(ref, upstream, Status.INVALID, e.getMessage(), List.of());
+		} catch (UpstreamSources.UpstreamException e) {
+			return result(ref, upstream, Status.UNRESOLVABLE, e.getMessage(), List.of());
+		}
+	}
 
+	private CheckResult compare(CopiedCodeReference ref, String upstream, Gav baseline, Gav current) {
 		Optional<Path> baselineJar = sources(baseline);
 		if (baselineJar.isEmpty()) {
 			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + baseline + " not found", List.of());
