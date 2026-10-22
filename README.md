@@ -127,7 +127,7 @@ The current version of an upstream artifact is determined in this order; the fir
 | `UNCHANGED` | upstream element is the same at both versions (also reported when both versions are equal, after checking the reference exists) | info |
 | `CHANGED` | upstream changed: review your copy, then bump `version`; also when a method referenced without parameter types became overloaded | fail |
 | `REMOVED` | element no longer exists at the current version (removed, renamed or moved) | fail |
-| `UNRESOLVABLE` | baseline sources/element, current sources, or the current version cannot be determined | fail |
+| `UNRESOLVABLE` | baseline sources/element, current sources, or the current version cannot be determined, or a local source file mentioning the annotations cannot be parsed | fail |
 | `INVALID` | malformed annotation or reference ambiguous at the baseline (e.g. overloaded method without parameter types) | always fail |
 
 Example output:

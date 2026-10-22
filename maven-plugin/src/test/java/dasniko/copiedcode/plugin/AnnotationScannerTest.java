@@ -40,6 +40,15 @@ class AnnotationScannerTest {
 	}
 
 	@Test
+	void reportsUnparseableFilesMentioningTheAnnotations() throws IOException {
+		Path broken = Files.writeString(tmp.resolve("Broken.java"), "import dasniko.copiedcode.CopiedFrom; class Broken {");
+		Files.writeString(tmp.resolve("Other.java"), "class Other {");
+		var result = new AnnotationScanner().scan(List.of(tmp), StandardCharsets.UTF_8);
+		assertThat(result.elements()).isEmpty();
+		assertThat(result.parseProblems()).containsOnlyKeys(broken);
+	}
+
+	@Test
 	void findsAllTargetsWithDefaultMembers() {
 		var elements = scan("""
 			package de.example;

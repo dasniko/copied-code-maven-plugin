@@ -39,7 +39,8 @@ holds what the code does not tell you.
   `INVALID`: it is upstream drift, so `onChanged` applies. The diff is taken against the overload with the baseline's signature.
 - Overloads whose parameter types normalize to the same simple names (`java.util.Date`/`java.sql.Date`) cannot be told apart by
   `source`; that is `INVALID` rather than silently comparing the first match.
-- Local sources are decoded leniently: only the annotations are read from them.
+- Local files mentioning the annotations that JavaParser cannot parse are `UNRESOLVABLE` (configurable, as JavaParser may lag
+  behind javac), never silently skipped. Local sources are decoded leniently: only the annotations are read from them.
 
 ## Testing
 

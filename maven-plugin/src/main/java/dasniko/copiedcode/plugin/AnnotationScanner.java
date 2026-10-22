@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +49,7 @@ class AnnotationScanner {
 	 */
 	Result scan(List<Path> sourceRoots, Charset encoding) throws IOException {
 		List<AnnotatedElement> elements = new ArrayList<>();
-		Map<Path, String> problems = new HashMap<>();
+		Map<Path, String> problems = new LinkedHashMap<>();
 		for (Path root : sourceRoots) {
 			if (!Files.isDirectory(root)) {
 				continue;

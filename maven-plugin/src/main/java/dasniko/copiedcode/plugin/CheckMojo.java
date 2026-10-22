@@ -120,8 +120,7 @@ public class CheckMojo extends AbstractMojo {
 		} catch (IOException e) {
 			throw new MojoExecutionException("Cannot read sources", e);
 		}
-		scan.parseProblems().forEach((file, problem) -> getLog().warn("Cannot parse " + file + ", skipped: " + problem));
-		if (scan.elements().isEmpty()) {
+		if (scan.elements().isEmpty() && scan.parseProblems().isEmpty()) {
 			getLog().info("No copied code found");
 			return;
 		}
@@ -140,10 +139,13 @@ public class CheckMojo extends AbstractMojo {
 			new VersionResolver(upstreams, dependencies.stream().map(Dependency::gav).toList(), managed), dependencies, ignoreComments);
 
 		prepareDiffOutputDirectory();
+		// a file that mentions the annotations but cannot be parsed may contain copied code that would go unchecked
+		Stream<CheckResult> unparseable = scan.parseProblems().entrySet().stream()
+			.map(p -> new CheckResult(p.getKey(), 1, p.getKey().getFileName().toString(), "?", Status.UNRESOLVABLE,
+				"cannot parse the local source, copied code in it is not checked: " + p.getValue(), List.of()));
 		Map<Status, Integer> counts = new EnumMap<>(Status.class);
 		int failures = 0;
-		for (AnnotatedElement element : scan.elements()) {
-			CheckResult result = checker.check(element);
+		for (CheckResult result : Stream.concat(unparseable, scan.elements().stream().map(checker::check)).toList()) {
 			counts.merge(result.status(), 1, Integer::sum);
 			if (report(result) == Action.FAIL) {
 				failures++;
