@@ -120,6 +120,7 @@ public class CheckMojo extends AbstractMojo {
 		} catch (IOException e) {
 			throw new MojoExecutionException("Cannot read sources", e);
 		}
+		prepareDiffOutputDirectory();
 		if (scan.elements().isEmpty() && scan.parseProblems().isEmpty()) {
 			getLog().info("No copied code found");
 			return;
@@ -138,7 +139,6 @@ public class CheckMojo extends AbstractMojo {
 		Checker checker = new Checker(this::resolveSources,
 			new VersionResolver(upstreams, dependencies.stream().map(Dependency::gav).toList(), managed), dependencies, ignoreComments);
 
-		prepareDiffOutputDirectory();
 		// a file that mentions the annotations but cannot be parsed may contain copied code that would go unchecked
 		Stream<CheckResult> unparseable = scan.parseProblems().entrySet().stream()
 			.map(p -> new CheckResult(p.getKey(), 1, p.getKey().getFileName().toString(), "?", Status.UNRESOLVABLE,
