@@ -158,6 +158,39 @@ like the upstream file. Open the upstream source at both versions if you need th
 - The upstream artifact has to publish a `-sources.jar`.
 - Annotation attributes have to be string literals (concatenation of literals is fine), as they are read from source.
 
+## Snapshots
+
+Every push to `main` is published as a snapshot of the next version (e.g. `0.1.0-SNAPSHOT`) to the Maven Central snapshot
+repository. To use it, add the repository for both the annotations (a dependency) and the plugin:
+
+```xml
+<repositories>
+  <repository>
+    <id>central-portal-snapshots</id>
+    <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    <releases>
+      <enabled>false</enabled>
+    </releases>
+    <snapshots>
+      <enabled>true</enabled>
+    </snapshots>
+  </repository>
+</repositories>
+
+<pluginRepositories>
+  <pluginRepository>
+    <id>central-portal-snapshots</id>
+    <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    <releases>
+      <enabled>false</enabled>
+    </releases>
+    <snapshots>
+      <enabled>true</enabled>
+    </snapshots>
+  </pluginRepository>
+</pluginRepositories>
+```
+
 ## Building
 
 ```bash
