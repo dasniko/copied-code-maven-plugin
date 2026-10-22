@@ -97,7 +97,6 @@ public class CheckMojo extends AbstractMojo {
 	 */
 	private static final int MAX_DIFF_FILE_NAME = 200;
 
-	private final Set<String> diffFileNames = new HashSet<>();
 	private final MavenProject project;
 	private final MavenSession session;
 	private final RepositorySystem repositorySystem;
@@ -148,15 +147,13 @@ public class CheckMojo extends AbstractMojo {
 		Checker checker = new Checker(this::resolveSources,
 			new VersionResolver(upstreams, dependencies.stream().map(Dependency::gav).toList(), managed), dependencies, ignoreComments);
 
-		// a file that mentions the annotations but cannot be parsed may contain copied code that would go unchecked
-		Stream<CheckResult> unparseable = scan.parseProblems().entrySet().stream()
-			.map(p -> new CheckResult(p.getKey(), 1, p.getKey().getFileName().toString(), "?", Status.UNRESOLVABLE,
-				"cannot parse the local source, copied code in it is not checked: " + p.getValue(), List.of()));
+		Stream<CheckResult> unparseable = scan.parseProblems().entrySet().stream().map(p -> CheckResult.unparseable(p.getKey(), p.getValue()));
+		Set<String> diffFileNames = new HashSet<>();
 		Map<Status, Integer> counts = new EnumMap<>(Status.class);
 		int failures = 0;
 		for (CheckResult result : Stream.concat(unparseable, scan.elements().stream().map(checker::check)).toList()) {
 			counts.merge(result.status(), 1, Integer::sum);
-			if (report(result) == Action.FAIL) {
+			if (report(result, diffFileNames) == Action.FAIL) {
 				failures++;
 			}
 		}
@@ -188,7 +185,7 @@ public class CheckMojo extends AbstractMojo {
 		}
 	}
 
-	private Action report(CheckResult result) throws MojoExecutionException {
+	private Action report(CheckResult result, Set<String> diffFileNames) throws MojoExecutionException {
 		Action action = switch (result.status()) {
 			case UNCHANGED -> null;
 			case CHANGED -> onChanged;
@@ -197,7 +194,7 @@ public class CheckMojo extends AbstractMojo {
 			case INVALID -> Action.FAIL;
 		};
 		if (!result.diff().isEmpty()) {
-			writeDiff(result);
+			writeDiff(result, diffFileNames);
 		}
 
 		String headline = result.status() + " " + result.localElement() + " (" + result.location() + ")";
@@ -218,7 +215,6 @@ public class CheckMojo extends AbstractMojo {
 	}
 
 	private void prepareDiffOutputDirectory() throws MojoExecutionException {
-		diffFileNames.clear();
 		Path dir = diffOutputDirectory.toPath();
 		if (!Files.isDirectory(dir)) {
 			return;
@@ -232,7 +228,7 @@ public class CheckMojo extends AbstractMojo {
 		}
 	}
 
-	private void writeDiff(CheckResult result) throws MojoExecutionException {
+	private void writeDiff(CheckResult result, Set<String> diffFileNames) throws MojoExecutionException {
 		Path file = diffOutputDirectory.toPath().resolve(diffFileName(result.localElement(), diffFileNames));
 		try {
 			Files.createDirectories(file.getParent());

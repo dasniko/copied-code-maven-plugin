@@ -33,6 +33,14 @@ record CheckResult(Path file, int line, String localElement, String upstream, St
 		diff = List.copyOf(diff);
 	}
 
+	/**
+	 * A local file mentioning the annotations that cannot be parsed may contain copied code that would go unchecked.
+	 */
+	static CheckResult unparseable(Path file, String problems) {
+		return new CheckResult(file, 1, file.getFileName().toString(), "?", Status.UNRESOLVABLE,
+			"cannot parse the local source, copied code in it is not checked: " + problems, List.of());
+	}
+
 	String location() {
 		return file + ":" + line;
 	}

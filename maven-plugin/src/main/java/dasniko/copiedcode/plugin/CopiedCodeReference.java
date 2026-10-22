@@ -22,10 +22,6 @@ record CopiedCodeReference(Path file, int line, String localElement, String grou
 
 	private static final Pattern MAVEN_ID = Pattern.compile("[A-Za-z0-9_.-]+");
 
-	String upstreamArtifact() {
-		return groupId + ":" + (artifactId == null ? "?" : artifactId);
-	}
-
 	/**
 	 * @throws InvalidReferenceException if the annotation's attributes are missing or malformed
 	 */

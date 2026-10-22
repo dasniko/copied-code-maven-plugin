@@ -26,7 +26,14 @@ final class TypeNames {
 			suffix = "[]" + suffix;
 			t = t.substring(0, t.length() - 2);
 		}
-		return t.substring(t.lastIndexOf('.') + 1) + suffix;
+		return simpleName(t) + suffix;
+	}
+
+	/**
+	 * Last segment of a qualified name, e.g. {@code Inner} of {@code a.b.Outer.Inner}.
+	 */
+	static String simpleName(String qualifiedName) {
+		return qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
 	}
 
 	static String of(Parameter parameter) {

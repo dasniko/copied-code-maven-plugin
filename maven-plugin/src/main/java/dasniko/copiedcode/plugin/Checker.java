@@ -33,6 +33,10 @@ class Checker {
 	private final UpstreamSources upstreamSources = new UpstreamSources();
 	private final CodeNormalizer normalizer;
 	private final Map<Gav, Optional<Path>> jars = new HashMap<>();
+	private final Map<DetectionKey, Optional<String>> detectedArtifactIds = new HashMap<>();
+
+	private record DetectionKey(String groupId, String typeName) {
+	}
 
 	/**
 	 * @param dependencies the project's resolved dependencies, searched when a reference does not name its artifactId
@@ -59,8 +63,8 @@ class Checker {
 		if (artifactId == null) {
 			Optional<String> detected = detectArtifactId(ref);
 			if (detected.isEmpty()) {
-				return result(ref, ref.upstreamArtifact() + " " + ref.source(), Status.UNRESOLVABLE, "no " + ref.groupId()
-					+ " dependency with sources contains " + ref.source().typeName() + ", set the annotation's artifact", List.of());
+				return result(ref, ref.groupId() + ":? " + ref.source(), Status.UNRESOLVABLE, "no " + ref.groupId()
+					+ " dependency with sources contains " + ref.source().typeName() + ", set the annotation's artifact");
 			}
 			artifactId = detected.get();
 		}
@@ -69,7 +73,7 @@ class Checker {
 		Optional<String> currentVersion = versionResolver.resolve(ref.groupId(), artifactId);
 		if (currentVersion.isEmpty()) {
 			return result(ref, upstreamArtifact + " " + ref.source(), Status.UNRESOLVABLE, "cannot determine the current version of "
-				+ upstreamArtifact + ", it is no dependency of the project; configure it in <upstreams>", List.of());
+				+ upstreamArtifact + ", it is no dependency of the project; configure it in <upstreams>");
 		}
 		Gav baseline = new Gav(ref.groupId(), artifactId, ref.version());
 		Gav current = new Gav(ref.groupId(), artifactId, currentVersion.get());
@@ -77,28 +81,28 @@ class Checker {
 		try {
 			return compare(ref, upstream, baseline, current);
 		} catch (InvalidReferenceException e) {
-			return result(ref, upstream, Status.INVALID, e.getMessage(), List.of());
+			return result(ref, upstream, Status.INVALID, e.getMessage());
 		} catch (UpstreamSources.UpstreamException e) {
-			return result(ref, upstream, Status.UNRESOLVABLE, e.getMessage(), List.of());
+			return result(ref, upstream, Status.UNRESOLVABLE, e.getMessage());
 		}
 	}
 
 	private CheckResult compare(CopiedCodeReference ref, String upstream, Gav baseline, Gav current) {
 		Optional<Path> baselineJar = sources(baseline);
 		if (baselineJar.isEmpty()) {
-			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + baseline + " not found", List.of());
+			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + baseline + " not found");
 		}
 		Optional<Node> baselineNode = upstreamSources.find(baselineJar.get(), ref.source());
 		if (baselineNode.isEmpty()) {
-			return result(ref, upstream, Status.UNRESOLVABLE, ref.source() + " not found in sources of " + baseline, List.of());
+			return result(ref, upstream, Status.UNRESOLVABLE, ref.source() + " not found in sources of " + baseline);
 		}
 		if (baseline.equals(current)) {
-			return result(ref, upstream, Status.UNCHANGED, "", List.of());
+			return result(ref, upstream, Status.UNCHANGED, "");
 		}
 
 		Optional<Path> currentJar = sources(current);
 		if (currentJar.isEmpty()) {
-			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + current + " not found", List.of());
+			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + current + " not found");
 		}
 		Optional<Node> currentNode;
 		try {
@@ -108,12 +112,12 @@ class Checker {
 			return newOverload(ref, upstream, baseline, baselineNode.get(), current, currentJar.get(), e);
 		}
 		if (currentNode.isEmpty()) {
-			return result(ref, upstream, Status.REMOVED, ref.source() + " not found in sources of " + current, List.of());
+			return result(ref, upstream, Status.REMOVED, ref.source() + " not found in sources of " + current);
 		}
 
 		List<String> diff = diff(baseline, baselineNode.get(), current, currentNode.get());
 		if (diff.isEmpty()) {
-			return result(ref, upstream, Status.UNCHANGED, "", List.of());
+			return result(ref, upstream, Status.UNCHANGED, "");
 		}
 		return result(ref, upstream, Status.CHANGED, "upstream changed, review the local copy and set version = \""
 			+ current.version() + "\"", diff);
@@ -127,12 +131,15 @@ class Checker {
 									Path currentJar, InvalidReferenceException e) {
 		if (!(baselineNode instanceof MethodDeclaration method)) {
 			return result(ref, upstream, Status.CHANGED, e.getMessage() + " at " + current.version()
-				+ "; review the local copy, then fix source and set version = \"" + current.version() + "\"", List.of());
+				+ "; review the local copy, then fix source and set version = \"" + current.version() + "\"");
 		}
 		SourceRef pinned = ref.source().withMember(new MemberRef(method.getNameAsString(), TypeNames.of(method.getParameters())));
-		List<String> diff = upstreamSources.find(currentJar, pinned)
-			.map(node -> diff(baseline, method, current, node))
-			.orElse(List.of());
+		List<String> diff;
+		try {
+			diff = upstreamSources.find(currentJar, pinned).map(node -> diff(baseline, method, current, node)).orElse(List.of());
+		} catch (InvalidReferenceException ambiguous) {
+			diff = List.of();
+		}
 		return result(ref, upstream, Status.CHANGED, "'" + method.getNameAsString() + "' is overloaded at " + current.version()
 			+ ", review the local copy and set source = \"" + pinned + "\" and version = \"" + current.version() + "\"", diff);
 	}
@@ -154,9 +161,13 @@ class Checker {
 	 * downloaded. Sources are only searched for dependencies without a resolved file.
 	 */
 	private Optional<String> detectArtifactId(CopiedCodeReference ref) {
-		String typeName = ref.source().typeName();
+		return detectedArtifactIds.computeIfAbsent(new DetectionKey(ref.groupId(), ref.source().typeName()), this::detectArtifactId);
+	}
+
+	private Optional<String> detectArtifactId(DetectionKey key) {
+		String typeName = key.typeName();
 		return dependencies.stream()
-			.filter(d -> d.gav().groupId().equals(ref.groupId()))
+			.filter(d -> d.gav().groupId().equals(key.groupId()))
 			.sorted(Comparator.comparing(d -> d.gav().artifactId()))
 			.filter(d -> d.file() != null
 				? UpstreamSources.containsClass(d.file(), typeName)
@@ -167,6 +178,10 @@ class Checker {
 
 	private Optional<Path> sources(Gav gav) {
 		return jars.computeIfAbsent(gav, sourcesResolver::resolve);
+	}
+
+	private static CheckResult result(CopiedCodeReference ref, String upstream, Status status, String message) {
+		return result(ref, upstream, status, message, List.of());
 	}
 
 	private static CheckResult result(CopiedCodeReference ref, String upstream, Status status, String message, List<String> diff) {

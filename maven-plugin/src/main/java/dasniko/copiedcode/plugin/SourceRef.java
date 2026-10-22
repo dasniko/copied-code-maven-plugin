@@ -1,6 +1,6 @@
 package dasniko.copiedcode.plugin;
 
-import java.util.regex.Pattern;
+import javax.lang.model.SourceVersion;
 
 /**
  * Parsed {@code source} attribute: {@code a.b.Type}, {@code a.b.Type#member} or {@code a.b.Type#member(Param, ...)}.
@@ -10,15 +10,11 @@ import java.util.regex.Pattern;
  */
 record SourceRef(String typeName, MemberRef member) {
 
-	private static final Pattern QUALIFIED_NAME = Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*"
-		+ "(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*");
-	private static final Pattern IDENTIFIER = Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*");
-
 	static SourceRef parse(String source) {
 		String s = source.strip();
 		int hash = s.indexOf('#');
 		String type = hash < 0 ? s : s.substring(0, hash).strip();
-		if (!QUALIFIED_NAME.matcher(type).matches()) {
+		if (!SourceVersion.isName(type)) {
 			throw new IllegalArgumentException("'" + type + "' is not a valid type name");
 		}
 		if (hash < 0) {
@@ -28,7 +24,7 @@ record SourceRef(String typeName, MemberRef member) {
 		String member = s.substring(hash + 1).strip();
 		int paren = member.indexOf('(');
 		String name = paren < 0 ? member : member.substring(0, paren).strip();
-		if (!IDENTIFIER.matcher(name).matches()) {
+		if (!SourceVersion.isIdentifier(name) || SourceVersion.isKeyword(name)) {
 			throw new IllegalArgumentException("'" + name + "' is not a valid member name");
 		}
 		if (paren < 0) {
@@ -38,12 +34,11 @@ record SourceRef(String typeName, MemberRef member) {
 			throw new IllegalArgumentException("missing ')' in '" + member + "'");
 		}
 		var parameters = TypeNames.splitParameters(member.substring(paren + 1, member.length() - 1));
-		String simpleName = type.substring(type.lastIndexOf('.') + 1);
-		return new SourceRef(type, new MemberRef(name.equals(simpleName) ? MemberRef.CONSTRUCTOR : name, parameters));
+		return new SourceRef(type, new MemberRef(name.equals(TypeNames.simpleName(type)) ? MemberRef.CONSTRUCTOR : name, parameters));
 	}
 
 	String simpleName() {
-		return typeName.substring(typeName.lastIndexOf('.') + 1);
+		return TypeNames.simpleName(typeName);
 	}
 
 	SourceRef withMember(MemberRef member) {

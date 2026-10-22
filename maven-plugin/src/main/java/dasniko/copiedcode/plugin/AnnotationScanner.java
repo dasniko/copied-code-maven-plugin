@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -69,12 +68,11 @@ class AnnotationScanner {
 				if (!content.contains(AnnotatedElement.Kind.GENERIC.simpleName())) {
 					continue; // cheap pre-filter, also matches CopiedFromKeycloak
 				}
-				var parsed = parser.parse(content);
-				if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
-					problems.put(file, parsed.getProblems().stream().map(Object::toString).collect(Collectors.joining("; ")));
-					continue;
+				try {
+					elements.addAll(scan(file, Parsers.parse(parser, content)));
+				} catch (Parsers.UnparseableException e) {
+					problems.put(file, e.getMessage());
 				}
-				elements.addAll(scan(file, parsed.getResult().get()));
 			}
 		}
 		return new Result(elements, problems);
@@ -141,35 +139,20 @@ class AnnotationScanner {
 			errors.add("source and version are missing");
 		}
 
-		String localElement;
+		String localElement = null;
 		MemberRef defaultMember = null;
 		switch (annotated) {
-			case MethodDeclaration m -> {
-				defaultMember = new MemberRef(m.getNameAsString(), TypeNames.of(m.getParameters()));
-				localElement = typeName(m) + "#" + defaultMember.describe(null);
-			}
-			case ConstructorDeclaration c -> {
-				defaultMember = new MemberRef(MemberRef.CONSTRUCTOR, TypeNames.of(c.getParameters()));
-				localElement = typeName(c) + "#" + defaultMember.describe(c.getNameAsString());
-			}
+			case MethodDeclaration m -> defaultMember = new MemberRef(m.getNameAsString(), TypeNames.of(m.getParameters()));
+			case ConstructorDeclaration c -> defaultMember = new MemberRef(MemberRef.CONSTRUCTOR, TypeNames.of(c.getParameters()));
 			case CompactConstructorDeclaration c -> {
 				// the compact form of the canonical constructor, whose parameters are the record components
 				List<Parameter> components = c.findAncestor(RecordDeclaration.class).map(RecordDeclaration::getParameters).orElseThrow();
 				defaultMember = new MemberRef(MemberRef.CONSTRUCTOR, TypeNames.of(components));
-				localElement = typeName(c) + "#" + defaultMember.describe(c.getNameAsString());
 			}
-			case AnnotationMemberDeclaration a -> {
-				defaultMember = new MemberRef(a.getNameAsString(), List.of());
-				localElement = typeName(a) + "#" + defaultMember.describe(null);
-			}
-			case EnumConstantDeclaration e -> {
-				defaultMember = new MemberRef(e.getNameAsString(), null);
-				localElement = typeName(e) + "#" + e.getNameAsString();
-			}
-			case Parameter p when p.getParentNode().filter(RecordDeclaration.class::isInstance).isPresent() -> {
+			case AnnotationMemberDeclaration a -> defaultMember = new MemberRef(a.getNameAsString(), List.of());
+			case EnumConstantDeclaration e -> defaultMember = new MemberRef(e.getNameAsString(), null);
+			case Parameter p when p.getParentNode().filter(RecordDeclaration.class::isInstance).isPresent() ->
 				defaultMember = new MemberRef(p.getNameAsString(), null);
-				localElement = typeName(p) + "#" + p.getNameAsString();
-			}
 			case FieldDeclaration f -> {
 				List<String> names = f.getVariables().stream().map(VariableDeclarator::getNameAsString).toList();
 				if (names.size() == 1) {
@@ -177,13 +160,18 @@ class AnnotationScanner {
 				} else if (!attributes.getOrDefault("source", "").contains("#")) {
 					errors.add("source must name the member, the field declaration declares several variables " + names);
 				}
-				localElement = typeName(f) + "#" + String.join(",", names);
+				localElement = enclosingType(f).map(t -> qualifiedName(t) + "#").orElse("?#") + String.join(",", names);
 			}
 			case TypeDeclaration<?> t -> localElement = qualifiedName(t);
 			default -> {
 				localElement = annotated.getClass().getSimpleName();
 				errors.add("unsupported annotation target");
 			}
+		}
+		if (localElement == null) {
+			Optional<TypeDeclaration<?>> type = enclosingType(annotated);
+			localElement = type.map(AnnotationScanner::qualifiedName).orElse("?") + "#"
+				+ defaultMember.describe(type.map(TypeDeclaration::getNameAsString).orElse(null));
 		}
 		return new AnnotatedElement(kind, file, line, localElement, defaultMember, Map.copyOf(attributes), List.copyOf(errors));
 	}
@@ -198,8 +186,8 @@ class AnnotationScanner {
 		};
 	}
 
-	private static String typeName(Node member) {
-		return member.findAncestor(TypeDeclaration.class).map(AnnotationScanner::qualifiedName).orElse("?");
+	private static Optional<TypeDeclaration<?>> enclosingType(Node member) {
+		return member.findAncestor(TypeDeclaration.class).map(t -> (TypeDeclaration<?>) t);
 	}
 
 	private static String qualifiedName(TypeDeclaration<?> type) {

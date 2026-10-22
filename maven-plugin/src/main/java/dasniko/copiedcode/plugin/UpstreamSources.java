@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +32,10 @@ import java.util.zip.ZipFile;
 class UpstreamSources {
 
 	private final JavaParser parser = Parsers.create();
-	private final Map<String, Optional<Located>> cache = new HashMap<>();
+	private final Map<Key, Optional<Located>> cache = new HashMap<>();
+
+	private record Key(Path sourcesJar, String typeName) {
+	}
 
 	/**
 	 * A parsed upstream file and the path of nested type names inside it.
@@ -70,7 +74,7 @@ class UpstreamSources {
 	 * @throws UpstreamException         if the jar cannot be read or the source file cannot be parsed
 	 */
 	Optional<Node> find(Path sourcesJar, SourceRef source) {
-		Optional<TypeDeclaration<?>> type = cache.computeIfAbsent(sourcesJar + "!" + source.typeName(), k -> locate(sourcesJar, source))
+		Optional<TypeDeclaration<?>> type = cache.computeIfAbsent(new Key(sourcesJar, source.typeName()), k -> locate(sourcesJar, source))
 			.flatMap(UpstreamSources::resolveType);
 		if (type.isEmpty() || source.member() == null) {
 			return type.map(Node.class::cast);
@@ -89,12 +93,11 @@ class UpstreamSources {
 				try (InputStream in = zip.getInputStream(entry)) {
 					content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
 				}
-				var parsed = parser.parse(content);
-				if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
-					throw new UpstreamException("cannot parse " + candidate.entry() + " in " + sourcesJar.getFileName() + ": "
-						+ parsed.getProblems().stream().map(Object::toString).collect(Collectors.joining("; ")));
+				try {
+					return Optional.of(new Located(Parsers.parse(parser, content), candidate.typePath()));
+				} catch (Parsers.UnparseableException e) {
+					throw new UpstreamException("cannot parse " + candidate.entry() + " in " + sourcesJar.getFileName() + ": " + e.getMessage());
 				}
-				return Optional.of(new Located(parsed.getResult().get(), candidate.typePath()));
 			}
 			return Optional.empty();
 		} catch (IOException e) {
@@ -218,11 +221,12 @@ class UpstreamSources {
 	 */
 	private static List<Candidate> candidates(String typeName) {
 		String[] segments = typeName.split("\\.");
-		return java.util.stream.IntStream.iterate(segments.length - 1, i -> i >= 0, i -> i - 1)
-			.mapToObj(i -> new Candidate(
-				String.join("/", Arrays.copyOfRange(segments, 0, i + 1)) + ".java",
-				Arrays.asList(segments).subList(i, segments.length)))
-			.toList();
+		List<Candidate> candidates = new ArrayList<>();
+		for (int i = segments.length - 1; i >= 0; i--) {
+			candidates.add(new Candidate(String.join("/", Arrays.copyOfRange(segments, 0, i + 1)) + ".java",
+				Arrays.asList(segments).subList(i, segments.length)));
+		}
+		return candidates;
 	}
 
 	static class UpstreamException extends RuntimeException {

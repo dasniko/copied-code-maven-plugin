@@ -168,6 +168,10 @@ class CheckerTest {
 		return jar;
 	}
 
+	private CheckResult check(String source) {
+		return check(source, null);
+	}
+
 	private CheckResult check(String source, MemberRef defaultMember) {
 		return check(AnnotatedElement.Kind.GENERIC, "g:a", source, "1", defaultMember);
 	}
@@ -189,12 +193,12 @@ class CheckerTest {
 
 	@Test
 	void ignoresFormattingAndComments() {
-		assertThat(check("up.Foo#add(int, int)", null).status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo#add(int, int)").status()).isEqualTo(Status.UNCHANGED);
 	}
 
 	@Test
 	void detectsChangedMethodWithDiff() {
-		var result = check("up.Foo#add(int, int, int)", null);
+		var result = check("up.Foo#add(int, int, int)");
 		assertThat(result.status()).isEqualTo(Status.CHANGED);
 		assertThat(result.upstream()).isEqualTo("g:a up.Foo#add(int, int, int) 1 -> 2");
 		assertThat(result.diff()).contains("--- g:a:1", "+++ g:a:2", "-    return a + b + c;",
@@ -209,52 +213,52 @@ class CheckerTest {
 
 	@Test
 	void comparesFields() {
-		assertThat(check("up.Foo#LIMIT", null).status()).isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo#LIMIT").status()).isEqualTo(Status.CHANGED);
 	}
 
 	@Test
 	void comparesOnlyTheReferencedVariableOfAFieldDeclaration() {
-		assertThat(check("up.Foo#A", null).status()).isEqualTo(Status.UNCHANGED);
-		var result = check("up.Foo#B", null);
+		assertThat(check("up.Foo#A").status()).isEqualTo(Status.UNCHANGED);
+		var result = check("up.Foo#B");
 		assertThat(result.status()).isEqualTo(Status.CHANGED);
 		assertThat(result.diff()).contains("-public static final int B = 2;", "+public static final int B = 3;");
 	}
 
 	@Test
 	void comparesEnumConstantsRecordMembersAndAnnotationElements() {
-		assertThat(check("up.Foo.Mode#FAST", null).status()).isEqualTo(Status.UNCHANGED);
-		assertThat(check("up.Foo.Mode#SLOW", null).status()).isEqualTo(Status.REMOVED);
-		assertThat(check("up.Foo.Point#x", null).status()).isEqualTo(Status.UNCHANGED);
-		assertThat(check("up.Foo.Point#Point(int, int)", null).status()).isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo.Mode#FAST").status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo.Mode#SLOW").status()).isEqualTo(Status.REMOVED);
+		assertThat(check("up.Foo.Point#x").status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo.Point#Point(int, int)").status()).isEqualTo(Status.CHANGED);
 		assertThat(check("up.Foo.Point", new MemberRef(MemberRef.CONSTRUCTOR, List.of("int", "int"))).status())
 			.isEqualTo(Status.CHANGED);
-		assertThat(check("up.Foo.Marker#value", null).status()).isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo.Marker#value").status()).isEqualTo(Status.CHANGED);
 		assertThat(check("up.Foo.Marker", new MemberRef("value", List.of())).status()).isEqualTo(Status.CHANGED);
 	}
 
 	@Test
 	void comparesWholeTypes() {
-		assertThat(check("up.Foo", null).status()).isEqualTo(Status.CHANGED);
-		assertThat(check("up.Foo.Inner", null).status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo").status()).isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo.Inner").status()).isEqualTo(Status.UNCHANGED);
 	}
 
 	@Test
 	void comparesNestedConstructors() {
-		assertThat(check("up.Foo.Inner#Inner(String)", null).status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo.Inner#Inner(String)").status()).isEqualTo(Status.UNCHANGED);
 		assertThat(check("up.Foo.Inner", new MemberRef(MemberRef.CONSTRUCTOR, List.of("String"))).status()).isEqualTo(Status.UNCHANGED);
 	}
 
 	@Test
 	void detectsRemovedMember() {
-		var result = check("up.Foo#gone()", null);
+		var result = check("up.Foo#gone()");
 		assertThat(result.status()).isEqualTo(Status.REMOVED);
 		assertThat(result.message()).isEqualTo("up.Foo#gone() not found in sources of g:a:2");
 	}
 
 	@Test
 	void unknownBaselineElementIsUnresolvable() {
-		assertThat(check("up.Foo#typo()", null).status()).isEqualTo(Status.UNRESOLVABLE);
-		assertThat(check("up.Typo", null).status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(check("up.Foo#typo()").status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(check("up.Typo").status()).isEqualTo(Status.UNRESOLVABLE);
 	}
 
 	@Test
@@ -267,27 +271,27 @@ class CheckerTest {
 	@Test
 	void sameVersionStillValidatesTheReference() {
 		upstreams.add(upstream("g", "a", "1"));
-		assertThat(check("up.Foo#add(int, int, int)", null).status()).isEqualTo(Status.UNCHANGED);
-		assertThat(check("up.Foo#typo()", null).status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(check("up.Foo#add(int, int, int)").status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo#typo()").status()).isEqualTo(Status.UNRESOLVABLE);
 	}
 
 	@Test
 	void ambiguousMemberIsInvalid() {
-		var result = check("up.Foo#add", null);
+		var result = check("up.Foo#add");
 		assertThat(result.status()).isEqualTo(Status.INVALID);
 		assertThat(result.message()).contains("overloaded", "add(int, int)");
 	}
 
 	@Test
 	void overloadsOnlyDifferingInPackagesAreInvalid() {
-		var result = check("up.Foo#at(Date)", null);
+		var result = check("up.Foo#at(Date)");
 		assertThat(result.status()).isEqualTo(Status.INVALID);
 		assertThat(result.message()).contains("2 overloads of 'at(Date)'", "reference the whole type");
 	}
 
 	@Test
 	void newOverloadAtCurrentVersionIsChanged() {
-		var result = check("up.Foo#name", null);
+		var result = check("up.Foo#name");
 		assertThat(result.status()).isEqualTo(Status.CHANGED);
 		assertThat(result.message()).contains("overloaded at 2", "source = \"up.Foo#name()\"", "version = \"2\"");
 		assertThat(result.diff()).isEmpty();

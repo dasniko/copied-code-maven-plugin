@@ -29,7 +29,7 @@ record AnnotatedElement(Kind kind, Path file, int line, String localElement, Mem
 		}
 
 		String simpleName() {
-			return qualifiedName.substring(qualifiedName.lastIndexOf('.') + 1);
+			return TypeNames.simpleName(qualifiedName);
 		}
 
 		String packageName() {
