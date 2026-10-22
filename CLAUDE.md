@@ -14,6 +14,16 @@ holds what the code does not tell you.
 - Tabs, 140-char line limit; Markdown uses two spaces (`.editorconfig`). Keep `<properties>` in `pom.xml` sorted alphabetically.
 - Packages are `dasniko.copiedcode[.plugin]`; the groupId stays `com.github.dasniko`.
 
+## Publishing
+
+- Pull requests only build. A push to `main` builds and deploys a snapshot to the Central Portal snapshot repository
+  (`maven.yml`). A `v*` tag deploys a release (`deploy-release.yml`): the version comes from the tag via `versions:set`, so the
+  pom keeps its `-SNAPSHOT` version and nothing is committed back. Release builds also run the tests; they are fast here.
+- The `release` profile adds sources, javadoc and GPG signing. Without a key, check it locally with
+  `./mvnw verify -Prelease -Dgpg.skip`.
+- Secrets (same as testcontainers-keycloak): `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`, `GPG_PRIVATE_KEY`,
+  `GPG_PASSPHRASE`.
+
 ## Design decisions
 
 - **Upstream is compared with upstream, never with the local copy:** the element at the annotation's `version` (baseline)
