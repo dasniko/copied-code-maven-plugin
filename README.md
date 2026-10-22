@@ -65,7 +65,8 @@ static boolean isBlank(CharSequence cs) {
 | `a.b.Foo#Foo(String)` | that constructor |
 | `a.b.Foo#bar` | the field `bar`, or the method `bar` if it is not overloaded |
 
-Nested types are written as `a.b.Foo.Inner`.
+Nested types are written as `a.b.Foo.Inner`. Of a field declaration with several variables, such as `int a = 1, b = 2;`, only the
+referenced variable is compared, together with the shared modifiers and type.
 
 ### `artifact`
 

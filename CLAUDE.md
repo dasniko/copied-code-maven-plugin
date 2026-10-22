@@ -41,6 +41,8 @@ holds what the code does not tell you.
   `source`; that is `INVALID` rather than silently comparing the first match.
 - Local files mentioning the annotations that JavaParser cannot parse are `UNRESOLVABLE` (configurable, as JavaParser may lag
   behind javac), never silently skipped. Local sources are decoded leniently: only the annotations are read from them.
+- Of a multi-variable field declaration only the referenced variable is compared (a clone without the others), so changes to a
+  sibling do not count, but shared modifiers, type and annotations do.
 
 ## Testing
 

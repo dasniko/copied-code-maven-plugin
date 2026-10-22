@@ -50,6 +50,8 @@ class CheckerTest {
 			public void at(java.sql.Date date) {
 			}
 
+			public static final int A = 1, B = 2;
+
 			public static class Inner {
 				public Inner(String s) {
 				}
@@ -89,6 +91,8 @@ class CheckerTest {
 
 			public void at(java.sql.Date date) {
 			}
+
+			public static final int A = 1, B = 3;
 
 			public static class Inner {
 				public Inner(String s) {
@@ -174,6 +178,14 @@ class CheckerTest {
 	@Test
 	void comparesFields() {
 		assertThat(check("up.Foo#LIMIT", null).status()).isEqualTo(Status.CHANGED);
+	}
+
+	@Test
+	void comparesOnlyTheReferencedVariableOfAFieldDeclaration() {
+		assertThat(check("up.Foo#A", null).status()).isEqualTo(Status.UNCHANGED);
+		var result = check("up.Foo#B", null);
+		assertThat(result.status()).isEqualTo(Status.CHANGED);
+		assertThat(result.diff()).contains("-public static final int B = 2;", "+public static final int B = 3;");
 	}
 
 	@Test

@@ -135,7 +135,7 @@ class UpstreamSources {
 
 		Optional<Node> field = type.getFields().stream()
 			.filter(f -> f.getVariables().stream().anyMatch(v -> v.getNameAsString().equals(member.name())))
-			.<Node>map(FieldDeclaration.class::cast)
+			.<Node>map(f -> onlyVariable(f, member.name()))
 			.findFirst();
 		if (field.isPresent()) {
 			return field;
@@ -147,6 +147,18 @@ class UpstreamSources {
 				+ String.join(", ", TypeNames.of(methods.getFirst().getParameters())) + ")");
 		}
 		return methods.stream().<Node>map(m -> m).findFirst();
+	}
+
+	/**
+	 * Of a declaration like {@code int a = 1, b = 2;} only the named variable counts, together with the shared modifiers and type.
+	 */
+	private static FieldDeclaration onlyVariable(FieldDeclaration field, String name) {
+		if (field.getVariables().size() == 1) {
+			return field;
+		}
+		FieldDeclaration copy = field.clone();
+		List.copyOf(copy.getVariables()).stream().filter(v -> !v.getNameAsString().equals(name)).forEach(Node::remove);
+		return copy;
 	}
 
 	private record Candidate(String entry, List<String> typePath) {
