@@ -5,9 +5,14 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
+import com.github.javaparser.ast.body.AnnotationMemberDeclaration;
+import com.github.javaparser.ast.body.CompactConstructorDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
+import com.github.javaparser.ast.body.EnumConstantDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AnnotationExpr;
@@ -22,6 +27,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -87,6 +93,8 @@ class AnnotationScanner {
 			}
 			elements.add(toElement(kind.get(), file, annotation, parent.get()));
 		}
+		// source order: JavaParser visits a record's body before its components
+		elements.sort(Comparator.comparingInt(AnnotatedElement::line));
 		return elements;
 	}
 
@@ -143,6 +151,24 @@ class AnnotationScanner {
 			case ConstructorDeclaration c -> {
 				defaultMember = new MemberRef(MemberRef.CONSTRUCTOR, TypeNames.of(c.getParameters()));
 				localElement = typeName(c) + "#" + defaultMember.describe(c.getNameAsString());
+			}
+			case CompactConstructorDeclaration c -> {
+				// the compact form of the canonical constructor, whose parameters are the record components
+				List<Parameter> components = c.findAncestor(RecordDeclaration.class).map(RecordDeclaration::getParameters).orElseThrow();
+				defaultMember = new MemberRef(MemberRef.CONSTRUCTOR, TypeNames.of(components));
+				localElement = typeName(c) + "#" + defaultMember.describe(c.getNameAsString());
+			}
+			case AnnotationMemberDeclaration a -> {
+				defaultMember = new MemberRef(a.getNameAsString(), List.of());
+				localElement = typeName(a) + "#" + defaultMember.describe(null);
+			}
+			case EnumConstantDeclaration e -> {
+				defaultMember = new MemberRef(e.getNameAsString(), null);
+				localElement = typeName(e) + "#" + e.getNameAsString();
+			}
+			case Parameter p when p.getParentNode().filter(RecordDeclaration.class::isInstance).isPresent() -> {
+				defaultMember = new MemberRef(p.getNameAsString(), null);
+				localElement = typeName(p) + "#" + p.getNameAsString();
 			}
 			case FieldDeclaration f -> {
 				List<String> names = f.getVariables().stream().map(VariableDeclarator::getNameAsString).toList();

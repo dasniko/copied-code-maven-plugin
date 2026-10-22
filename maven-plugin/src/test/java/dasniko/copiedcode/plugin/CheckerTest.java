@@ -52,6 +52,22 @@ class CheckerTest {
 
 			public static final int A = 1, B = 2;
 
+			public enum Mode {
+				FAST, SLOW
+			}
+
+			public record Point(int x, int y) {
+				public Point {
+					if (x < 0) {
+						throw new IllegalArgumentException();
+					}
+				}
+			}
+
+			public @interface Marker {
+				String value() default "";
+			}
+
 			public static class Inner {
 				public Inner(String s) {
 				}
@@ -93,6 +109,22 @@ class CheckerTest {
 			}
 
 			public static final int A = 1, B = 3;
+
+			public enum Mode {
+				FAST
+			}
+
+			public record Point(int x, int y) {
+				public Point {
+					if (x < 0 || y < 0) {
+						throw new IllegalArgumentException();
+					}
+				}
+			}
+
+			public @interface Marker {
+				String value() default "none";
+			}
 
 			public static class Inner {
 				public Inner(String s) {
@@ -186,6 +218,18 @@ class CheckerTest {
 		var result = check("up.Foo#B", null);
 		assertThat(result.status()).isEqualTo(Status.CHANGED);
 		assertThat(result.diff()).contains("-public static final int B = 2;", "+public static final int B = 3;");
+	}
+
+	@Test
+	void comparesEnumConstantsRecordMembersAndAnnotationElements() {
+		assertThat(check("up.Foo.Mode#FAST", null).status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo.Mode#SLOW", null).status()).isEqualTo(Status.REMOVED);
+		assertThat(check("up.Foo.Point#x", null).status()).isEqualTo(Status.UNCHANGED);
+		assertThat(check("up.Foo.Point#Point(int, int)", null).status()).isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo.Point", new MemberRef(MemberRef.CONSTRUCTOR, List.of("int", "int"))).status())
+			.isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo.Marker#value", null).status()).isEqualTo(Status.CHANGED);
+		assertThat(check("up.Foo.Marker", new MemberRef("value", List.of())).status()).isEqualTo(Status.CHANGED);
 	}
 
 	@Test

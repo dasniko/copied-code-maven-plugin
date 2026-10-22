@@ -60,10 +60,10 @@ static boolean isBlank(CharSequence cs) {
 | Form | Compared upstream element |
 |---|---|
 | `a.b.Foo` on a type | the whole type |
-| `a.b.Foo` on a method, constructor or field | the member with the same signature (or field name) as the annotated one |
+| `a.b.Foo` on a method, constructor, field, enum constant, record component or annotation element | the member with the same signature (or name) as the annotated one; a compact constructor matches the canonical constructor |
 | `a.b.Foo#bar(String, int)` | that method overload; parameter types as simple names, without generics |
 | `a.b.Foo#Foo(String)` | that constructor |
-| `a.b.Foo#bar` | the field `bar`, or the method `bar` if it is not overloaded |
+| `a.b.Foo#bar` | the field, enum constant or record component `bar`, or the method `bar` if it is not overloaded |
 
 Nested types are written as `a.b.Foo.Inner`. Of a field declaration with several variables, such as `int a = 1, b = 2;`, only the
 referenced variable is compared, together with the shared modifiers and type.

@@ -41,6 +41,9 @@ holds what the code does not tell you.
   `source`; that is `INVALID` rather than silently comparing the first match.
 - Local files mentioning the annotations that JavaParser cannot parse are `UNRESOLVABLE` (configurable, as JavaParser may lag
   behind javac), never silently skipped. Local sources are decoded leniently: only the annotations are read from them.
+- Every `@Target` usage is supported, including enum constants and record components (`FIELD`), compact constructors
+  (`CONSTRUCTOR`, matched as the canonical constructor) and annotation elements (`METHOD`). `Foo#x` on a record means the
+  component, not an explicit accessor `x()`.
 - Of a multi-variable field declaration only the referenced variable is compared (a clone without the others), so changes to a
   sibling do not count, but shared modifiers, type and annotations do.
 

@@ -1,6 +1,5 @@
 package dasniko.copiedcode.plugin;
 
-import com.github.javaparser.StaticJavaParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,7 +18,7 @@ class AnnotationScannerTest {
 	private static final Path FILE = Path.of("Local.java");
 
 	private static List<AnnotatedElement> scan(String source) {
-		return new AnnotationScanner().scan(FILE, StaticJavaParser.parse(source));
+		return new AnnotationScanner().scan(FILE, Parsers.create().parse(source).getResult().orElseThrow());
 	}
 
 	@TempDir
@@ -81,6 +80,41 @@ class AnnotationScannerTest {
 					new MemberRef(MemberRef.CONSTRUCTOR, List.of("List", "int...")), 12),
 				tuple(AnnotatedElement.Kind.KEYCLOAK, "de.example.Local#method(Map)", new MemberRef("method", List.of("Map")), 16));
 		assertThat(elements.getLast().attributes()).isEqualTo(Map.of("source", "org.keycloak.Foo#other", "version", "26.0.0"));
+		assertThat(elements).allSatisfy(e -> assertThat(e.errors()).isEmpty());
+	}
+
+	@Test
+	void findsEnumConstantsRecordMembersAndAnnotationElements() {
+		var elements = scan("""
+			package de.example;
+
+			import dasniko.copiedcode.CopiedFrom;
+
+			class Local {
+				enum Mode {
+					@CopiedFrom(artifact = "g:a", source = "a.Up.Mode", version = "1.0") FAST
+				}
+
+				record Point(@CopiedFrom(artifact = "g:a", source = "a.Up.Point", version = "1.0") int x, int y) {
+					@CopiedFrom(artifact = "g:a", source = "a.Up.Point", version = "1.0")
+					Point {
+					}
+				}
+
+				@interface Marker {
+					@CopiedFrom(artifact = "g:a", source = "a.Up.Marker", version = "1.0")
+					String value();
+				}
+			}
+			""");
+
+		assertThat(elements)
+			.extracting(AnnotatedElement::localElement, AnnotatedElement::defaultMember)
+			.containsExactly(
+				tuple("de.example.Local.Mode#FAST", new MemberRef("FAST", null)),
+				tuple("de.example.Local.Point#x", new MemberRef("x", null)),
+				tuple("de.example.Local.Point#Point(int, int)", new MemberRef(MemberRef.CONSTRUCTOR, List.of("int", "int"))),
+				tuple("de.example.Local.Marker#value()", new MemberRef("value", List.of())));
 		assertThat(elements).allSatisfy(e -> assertThat(e.errors()).isEmpty());
 	}
 

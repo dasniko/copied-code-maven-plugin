@@ -4,9 +4,9 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
-import com.github.javaparser.ast.body.CallableDeclaration;
+import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 
 import java.io.IOException;
@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -119,34 +120,59 @@ class UpstreamSources {
 
 	private static Optional<Node> findMember(TypeDeclaration<?> type, MemberRef member) {
 		if (member.hasParameterList()) {
-			List<? extends CallableDeclaration<?>> callables = member.isConstructor()
-				? type.getConstructors()
-				: type.getMethodsByName(member.name());
-			List<? extends CallableDeclaration<?>> matching = callables.stream()
-				.filter(c -> TypeNames.of(c.getParameters()).equals(member.parameterTypes()))
+			List<Node> matching = callables(type, member)
+				.filter(c -> c.parameterTypes().equals(member.parameterTypes()))
+				.map(Callable::node)
 				.toList();
 			if (matching.size() > 1) {
 				throw new InvalidReferenceException(matching.size() + " overloads of '" + member.describe(type.getNameAsString())
 					+ "' in " + type.getNameAsString() + " differ only in packages or generics of their parameter types, which source"
 					+ " cannot tell apart; reference the whole type instead");
 			}
-			return matching.stream().<Node>map(c -> c).findFirst();
+			return matching.stream().findFirst();
 		}
 
 		Optional<Node> field = type.getFields().stream()
 			.filter(f -> f.getVariables().stream().anyMatch(v -> v.getNameAsString().equals(member.name())))
 			.<Node>map(f -> onlyVariable(f, member.name()))
-			.findFirst();
+			.findFirst()
+			.or(() -> enumConstant(type, member.name()))
+			.or(() -> recordComponent(type, member.name()));
 		if (field.isPresent()) {
 			return field;
 		}
-		List<MethodDeclaration> methods = type.getMethodsByName(member.name());
+		List<Callable> methods = callables(type, member).toList();
 		if (methods.size() > 1) {
 			throw new InvalidReferenceException("'" + member.name() + "' is overloaded in " + type.getNameAsString()
 				+ ", add the parameter types to source, e.g. " + member.name() + "("
-				+ String.join(", ", TypeNames.of(methods.getFirst().getParameters())) + ")");
+				+ String.join(", ", methods.getFirst().parameterTypes()) + ")");
 		}
-		return methods.stream().<Node>map(m -> m).findFirst();
+		return methods.stream().map(Callable::node).findFirst();
+	}
+
+	/**
+	 * A method, constructor or annotation element with its normalized parameter types.
+	 */
+	private record Callable(Node node, List<String> parameterTypes) {
+	}
+
+	private static Stream<Callable> callables(TypeDeclaration<?> type, MemberRef member) {
+		if (member.isConstructor()) {
+			Stream<Callable> constructors = type.getConstructors().stream().map(c -> new Callable(c, TypeNames.of(c.getParameters())));
+			if (type instanceof RecordDeclaration record) {
+				// the compact canonical constructor takes the record components
+				List<String> components = TypeNames.of(record.getParameters());
+				constructors = Stream.concat(constructors, record.getCompactConstructors().stream().map(c -> new Callable(c, components)));
+			}
+			return constructors;
+		}
+		Stream<Callable> elements = type.getMembers().stream()
+			.filter(BodyDeclaration::isAnnotationMemberDeclaration)
+			.map(BodyDeclaration::asAnnotationMemberDeclaration)
+			.filter(a -> a.getNameAsString().equals(member.name()))
+			.map(a -> new Callable(a, List.of()));
+		return Stream.concat(type.getMethodsByName(member.name()).stream().map(m -> new Callable(m, TypeNames.of(m.getParameters()))),
+			elements);
 	}
 
 	/**
@@ -159,6 +185,20 @@ class UpstreamSources {
 		FieldDeclaration copy = field.clone();
 		List.copyOf(copy.getVariables()).stream().filter(v -> !v.getNameAsString().equals(name)).forEach(Node::remove);
 		return copy;
+	}
+
+	private static Optional<Node> enumConstant(TypeDeclaration<?> type, String name) {
+		if (!(type instanceof EnumDeclaration enumDeclaration)) {
+			return Optional.empty();
+		}
+		return enumDeclaration.getEntries().stream().filter(e -> e.getNameAsString().equals(name)).<Node>map(e -> e).findFirst();
+	}
+
+	private static Optional<Node> recordComponent(TypeDeclaration<?> type, String name) {
+		if (!(type instanceof RecordDeclaration record)) {
+			return Optional.empty();
+		}
+		return record.getParameters().stream().filter(p -> p.getNameAsString().equals(name)).<Node>map(p -> p).findFirst();
 	}
 
 	private record Candidate(String entry, List<String> typePath) {
