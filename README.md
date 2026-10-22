@@ -29,29 +29,29 @@ upstream @ current version           (e.g. 26.4.1)             ──┘
 
 ```xml
 <dependency>
-	<groupId>com.github.dasniko</groupId>
-	<artifactId>copied-code-annotations</artifactId>
-	<version>${copied-code.version}</version>
-	<scope>provided</scope>
+  <groupId>com.github.dasniko</groupId>
+  <artifactId>copied-code-annotations</artifactId>
+  <version>${copied-code.version}</version>
+  <scope>provided</scope>
 </dependency>
 ```
 
 ```java
 @CopiedFromKeycloak(
-	source = "org.keycloak.authentication.authenticators.browser.UsernamePasswordForm",
-	version = "26.2.0",
-	modified = true,
-	changes = "skips the login hint",
-	reason = "not extensible")
+  source = "org.keycloak.authentication.authenticators.browser.UsernamePasswordForm",
+  version = "26.2.0",
+  modified = true,
+  changes = "skips the login hint",
+  reason = "not extensible")
 @Override
 public void authenticate(AuthenticationFlowContext context) {
-	…
+  …
 }
 
 @CopiedFrom(artifact = "org.apache.commons:commons-lang3", source = "org.apache.commons.lang3.StringUtils#isBlank(CharSequence)",
-	version = "3.17.0")
+  version = "3.17.0")
 static boolean isBlank(CharSequence cs) {
-	…
+  …
 }
 ```
 
@@ -77,25 +77,25 @@ Nested types are written as `a.b.Foo.Inner`.
 
 ```xml
 <plugin>
-	<groupId>com.github.dasniko</groupId>
-	<artifactId>copied-code-maven-plugin</artifactId>
-	<version>${copied-code.version}</version>
-	<executions>
-		<execution>
-			<goals>
-				<goal>check</goal>
-			</goals>
-		</execution>
-	</executions>
-	<configuration>
-		<upstreams>
-			<!-- all org.keycloak artifacts share one version -->
-			<upstream>
-				<groupId>org.keycloak</groupId>
-				<version>${keycloak.version}</version>
-			</upstream>
-		</upstreams>
-	</configuration>
+  <groupId>com.github.dasniko</groupId>
+  <artifactId>copied-code-maven-plugin</artifactId>
+  <version>${copied-code.version}</version>
+  <executions>
+    <execution>
+      <goals>
+        <goal>check</goal>
+      </goals>
+    </execution>
+  </executions>
+  <configuration>
+    <upstreams>
+      <!-- all org.keycloak artifacts share one version -->
+      <upstream>
+        <groupId>org.keycloak</groupId>
+        <version>${keycloak.version}</version>
+      </upstream>
+    </upstreams>
+  </configuration>
 </plugin>
 ```
 

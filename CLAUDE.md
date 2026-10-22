@@ -11,7 +11,7 @@ holds what the code does not tell you.
 ```
 
 - Modules: `annotations` (Java 17, so projects still on 17 can use them) and `maven-plugin` (Java 21).
-- Tabs, 140-char line limit (`.editorconfig`). Keep `<properties>` in `pom.xml` sorted alphabetically.
+- Tabs, 140-char line limit; Markdown uses two spaces (`.editorconfig`). Keep `<properties>` in `pom.xml` sorted alphabetically.
 - Packages are `dasniko.copiedcode[.plugin]`; the groupId stays `com.github.dasniko`.
 
 ## Design decisions
