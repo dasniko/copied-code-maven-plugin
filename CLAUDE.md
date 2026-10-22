@@ -35,6 +35,8 @@ holds what the code does not tell you.
 - Same baseline and current version still resolves the element, so a typo in `source` shows up immediately.
 - A missing *current* sources jar is `UNRESOLVABLE`, not `REMOVED` (more likely a publishing or network issue).
 - `INVALID` always fails the build; it is a broken annotation, not upstream drift.
+- A reference that is unambiguous at the baseline but ambiguous at the current version (new overload) is `CHANGED`, not
+  `INVALID`: it is upstream drift, so `onChanged` applies. The diff is taken against the overload with the baseline's signature.
 
 ## Testing
 

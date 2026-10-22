@@ -166,7 +166,7 @@ public class CheckMojo extends AbstractMojo {
 			case UNRESOLVABLE -> onUnresolvable;
 			case INVALID -> Action.FAIL;
 		};
-		if (result.status() == Status.CHANGED) {
+		if (!result.diff().isEmpty()) {
 			writeDiff(result);
 		}
 

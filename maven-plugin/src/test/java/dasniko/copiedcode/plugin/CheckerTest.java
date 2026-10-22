@@ -74,6 +74,10 @@ class CheckerTest {
 				return "foo";
 			}
 
+			public String name(String prefix) {
+				return prefix + "foo";
+			}
+
 			public static class Inner {
 				public Inner(String s) {
 				}
@@ -204,6 +208,14 @@ class CheckerTest {
 		var result = check("up.Foo#add", null);
 		assertThat(result.status()).isEqualTo(Status.INVALID);
 		assertThat(result.message()).contains("overloaded", "add(int, int)");
+	}
+
+	@Test
+	void newOverloadAtCurrentVersionIsChanged() {
+		var result = check("up.Foo#name", null);
+		assertThat(result.status()).isEqualTo(Status.CHANGED);
+		assertThat(result.message()).contains("overloaded at 2", "source = \"up.Foo#name()\"", "version = \"2\"");
+		assertThat(result.diff()).isEmpty();
 	}
 
 	@Test

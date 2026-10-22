@@ -3,6 +3,7 @@ package dasniko.copiedcode.plugin;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import dasniko.copiedcode.plugin.CheckResult.Status;
 
 import java.nio.file.Path;
@@ -99,20 +100,53 @@ class Checker {
 		if (currentJar.isEmpty()) {
 			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + current + " not found", List.of());
 		}
-		Optional<Node> currentNode = upstreamSources.find(currentJar.get(), ref.source());
+		Optional<Node> currentNode;
+		try {
+			currentNode = upstreamSources.find(currentJar.get(), ref.source());
+		} catch (InvalidReferenceException e) {
+			// unambiguous at the baseline, so it is upstream drift (a new overload), not a broken annotation
+			return newOverload(ref, upstream, baseline, baselineNode.get(), current, currentJar.get(), e);
+		}
 		if (currentNode.isEmpty()) {
 			return result(ref, upstream, Status.REMOVED, ref.source() + " not found in sources of " + current, List.of());
 		}
 
-		List<String> before = normalizer.normalize(baselineNode.get());
-		List<String> after = normalizer.normalize(currentNode.get());
-		if (before.equals(after)) {
+		List<String> diff = diff(baseline, baselineNode.get(), current, currentNode.get());
+		if (diff.isEmpty()) {
 			return result(ref, upstream, Status.UNCHANGED, "", List.of());
 		}
-		List<String> diff = UnifiedDiffUtils.generateUnifiedDiff(baseline.toString(), current.toString(), before,
-			DiffUtils.diff(before, after), 3);
 		return result(ref, upstream, Status.CHANGED, "upstream changed, review the local copy and set version = \""
 			+ current.version() + "\"", diff);
+	}
+
+	/**
+	 * The reference is ambiguous at the current version only. Typically a method referenced without parameter list became
+	 * overloaded; then the diff is taken against the overload with the baseline's signature, which the source should name from now on.
+	 */
+	private CheckResult newOverload(CopiedCodeReference ref, String upstream, Gav baseline, Node baselineNode, Gav current,
+									Path currentJar, InvalidReferenceException e) {
+		if (!(baselineNode instanceof MethodDeclaration method)) {
+			return result(ref, upstream, Status.CHANGED, e.getMessage() + " at " + current.version()
+				+ "; review the local copy, then fix source and set version = \"" + current.version() + "\"", List.of());
+		}
+		SourceRef pinned = ref.source().withMember(new MemberRef(method.getNameAsString(), TypeNames.of(method.getParameters())));
+		List<String> diff = upstreamSources.find(currentJar, pinned)
+			.map(node -> diff(baseline, method, current, node))
+			.orElse(List.of());
+		return result(ref, upstream, Status.CHANGED, "'" + method.getNameAsString() + "' is overloaded at " + current.version()
+			+ ", review the local copy and set source = \"" + pinned + "\" and version = \"" + current.version() + "\"", diff);
+	}
+
+	/**
+	 * @return the unified diff of the normalized elements, empty if they are equal
+	 */
+	private List<String> diff(Gav baseline, Node baselineNode, Gav current, Node currentNode) {
+		List<String> before = normalizer.normalize(baselineNode);
+		List<String> after = normalizer.normalize(currentNode);
+		if (before.equals(after)) {
+			return List.of();
+		}
+		return UnifiedDiffUtils.generateUnifiedDiff(baseline.toString(), current.toString(), before, DiffUtils.diff(before, after), 3);
 	}
 
 	/**
