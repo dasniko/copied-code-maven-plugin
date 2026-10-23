@@ -1,5 +1,12 @@
 # copied-code-maven-plugin
 
+[![CI build](https://img.shields.io/github/actions/workflow/status/dasniko/copied-code-maven-plugin/maven.yml?branch=main&label=CI%20build)](https://github.com/dasniko/copied-code-maven-plugin/actions/workflows/maven.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/dasniko/copied-code-maven-plugin?label=Release)](https://github.com/dasniko/copied-code-maven-plugin/releases)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.dasniko/copied-code-maven-plugin.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/com.github.dasniko/copied-code-maven-plugin)
+![GitHub Release Date](https://img.shields.io/github/release-date-pre/dasniko/copied-code-maven-plugin)
+![Github Last Commit](https://img.shields.io/github/last-commit/dasniko/copied-code-maven-plugin)
+![License](https://img.shields.io/github/license/dasniko/copied-code-maven-plugin?label=License)
+
 Sometimes code has to be copied from a library instead of being reused: the class is internal, the method is private, or it
 needs a small modification. Such a copy silently drifts away from upstream when the library is updated.
 
