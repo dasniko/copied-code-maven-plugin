@@ -160,8 +160,9 @@ like the upstream file. Open the upstream source at both versions if you need th
 
 ## Snapshots
 
-Every push to `main` is published as a snapshot of the next version (e.g. `0.1.0-SNAPSHOT`) to the Maven Central snapshot
-repository. To use it, add the repository for both the annotations (a dependency) and the plugin:
+Every push to `main` is published as version `999.0.0-SNAPSHOT` to the Maven Central snapshot repository. The snapshot
+version never changes, so it always is the latest state of `main`. To use it, add the repository for both the annotations
+(a dependency) and the plugin:
 
 ```xml
 <repositories>

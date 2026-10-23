@@ -18,7 +18,8 @@ holds what the code does not tell you.
 
 - Pull requests only build. A push to `main` builds and deploys a snapshot to the Central Portal snapshot repository
   (`maven.yml`). A `v*` tag deploys a release (`deploy-release.yml`): the version comes from the tag via `versions:set`, so the
-  pom keeps its `-SNAPSHOT` version and nothing is committed back. Release builds also run the tests; they are fast here.
+  poms always keep the fixed version `999.0.0-SNAPSHOT` (as Keycloak does) and nothing is committed back. Release builds also
+  run the tests; they are fast here.
 - The `release` profile adds sources, javadoc and GPG signing. Without a key, check it locally with
   `./mvnw verify -Prelease -Dgpg.skip`.
 - Secrets (same as testcontainers-keycloak): `CENTRAL_TOKEN_USERNAME`, `CENTRAL_TOKEN_PASSWORD`, `GPG_PRIVATE_KEY`,
