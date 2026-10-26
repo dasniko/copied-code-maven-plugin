@@ -7,16 +7,17 @@ import java.util.regex.Pattern;
 /**
  * A validated {@code @CopiedFrom} / {@code @CopiedFromKeycloak} usage.
  *
- * @param file         local source file
- * @param line         line of the annotation
- * @param localElement description of the annotated local element
- * @param groupId      upstream groupId
- * @param artifactId   upstream artifactId, {@code null} to auto-detect it among the project's dependencies of {@code groupId}
- * @param source       upstream element; for a member annotation without explicit member, the member derived from the local element
- * @param version      baseline upstream version
+ * @param file          local source file
+ * @param line          line of the annotation
+ * @param localElement  description of the annotated local element
+ * @param groupId       upstream groupId
+ * @param artifactId    upstream artifactId, {@code null} to auto-detect it among the project's dependencies of {@code groupId}
+ * @param source        upstream element; for a member annotation without explicit member, the member derived from the local element
+ * @param version       baseline upstream version
+ * @param derivedMember whether the member of {@code source} was derived from the local element, as the annotation names a type only
  */
 record CopiedCodeReference(Path file, int line, String localElement, String groupId, String artifactId, SourceRef source,
-						   String version) {
+						   String version, boolean derivedMember) {
 
 	static final String KEYCLOAK_GROUP_ID = "org.keycloak";
 
@@ -64,10 +65,12 @@ record CopiedCodeReference(Path file, int line, String localElement, String grou
 		} catch (IllegalArgumentException e) {
 			throw new InvalidReferenceException("invalid source '" + rawSource + "': " + e.getMessage());
 		}
-		if (source.member() == null && element.defaultMember() != null) {
+		boolean derivedMember = source.member() == null && element.defaultMember() != null;
+		if (derivedMember) {
 			source = source.withMember(element.defaultMember());
 		}
 
-		return new CopiedCodeReference(element.file(), element.line(), element.localElement(), groupId, artifactId, source, version);
+		return new CopiedCodeReference(element.file(), element.line(), element.localElement(), groupId, artifactId, source, version,
+			derivedMember);
 	}
 }

@@ -252,7 +252,29 @@ class CheckerTest {
 	void detectsRemovedMember() {
 		var result = check("up.Foo#gone()");
 		assertThat(result.status()).isEqualTo(Status.REMOVED);
-		assertThat(result.message()).isEqualTo("up.Foo#gone() not found in sources of g:a:2");
+		assertThat(result.message()).isEqualTo("up.Foo#gone() not found in sources of g:a:2, Foo has no member named 'gone'");
+	}
+
+	@Test
+	void unknownBaselineSignatureSuggestsAnExistingOne() {
+		var result = check("up.Foo#name(int)");
+		assertThat(result.status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(result.message()).isEqualTo("up.Foo#name(int) not found in sources of g:a:1, Foo declares name() only;"
+			+ " set source = \"up.Foo#name()\"");
+	}
+
+	@Test
+	void typeOnlySourceWithDifferentLocalSignatureExplainsTheLookup() {
+		var result = check("up.Foo", new MemberRef("gone", List.of("String")));
+		assertThat(result.status()).isEqualTo(Status.UNRESOLVABLE);
+		assertThat(result.message()).isEqualTo("up.Foo#gone(String) not found in sources of g:a:1: source names the type only,"
+			+ " so the signature of the local copy is looked up, but Foo declares gone(); set source = \"up.Foo#gone()\" to name"
+			+ " the upstream member");
+	}
+
+	@Test
+	void missingTypeOfMemberIsNamed() {
+		assertThat(check("up.Typo#x").message()).isEqualTo("up.Typo#x not found in sources of g:a:1, type up.Typo does not exist there");
 	}
 
 	@Test
@@ -265,7 +287,8 @@ class CheckerTest {
 	void unknownBaselineVersionIsUnresolvable() {
 		var result = check(AnnotatedElement.Kind.GENERIC, "g:a", "up.Foo", "0.9", null);
 		assertThat(result.status()).isEqualTo(Status.UNRESOLVABLE);
-		assertThat(result.message()).isEqualTo("sources of g:a:0.9 not found");
+		assertThat(result.message())
+			.isEqualTo("sources of g:a:0.9 not found; is version \"0.9\" correct and does it publish a sources jar?");
 	}
 
 	@Test
@@ -279,7 +302,8 @@ class CheckerTest {
 	void ambiguousMemberIsInvalid() {
 		var result = check("up.Foo#add");
 		assertThat(result.status()).isEqualTo(Status.INVALID);
-		assertThat(result.message()).contains("overloaded", "add(int, int)");
+		assertThat(result.message()).isEqualTo("'add' is overloaded in Foo (add(int, int), add(int, int, int)), add the parameter types"
+			+ " to source, e.g. Foo#add(int, int)");
 	}
 
 	@Test

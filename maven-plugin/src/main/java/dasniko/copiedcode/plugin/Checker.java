@@ -90,11 +90,12 @@ class Checker {
 	private CheckResult compare(CopiedCodeReference ref, String upstream, Gav baseline, Gav current) {
 		Optional<Path> baselineJar = sources(baseline);
 		if (baselineJar.isEmpty()) {
-			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + baseline + " not found");
+			return result(ref, upstream, Status.UNRESOLVABLE, "sources of " + baseline + " not found; is version \""
+				+ baseline.version() + "\" correct and does it publish a sources jar?");
 		}
 		Optional<Node> baselineNode = upstreamSources.find(baselineJar.get(), ref.source());
 		if (baselineNode.isEmpty()) {
-			return result(ref, upstream, Status.UNRESOLVABLE, ref.source() + " not found in sources of " + baseline);
+			return result(ref, upstream, Status.UNRESOLVABLE, notFound(ref, baseline, baselineJar.get(), true));
 		}
 		if (baseline.equals(current)) {
 			return result(ref, upstream, Status.UNCHANGED, "");
@@ -112,7 +113,7 @@ class Checker {
 			return newOverload(ref, upstream, baseline, baselineNode.get(), current, currentJar.get(), e);
 		}
 		if (currentNode.isEmpty()) {
-			return result(ref, upstream, Status.REMOVED, ref.source() + " not found in sources of " + current);
+			return result(ref, upstream, Status.REMOVED, notFound(ref, current, currentJar.get(), false));
 		}
 
 		List<String> diff = diff(baseline, baselineNode.get(), current, currentNode.get());
@@ -142,6 +143,36 @@ class Checker {
 		}
 		return result(ref, upstream, Status.CHANGED, "'" + method.getNameAsString() + "' is overloaded at " + current.version()
 			+ ", review the local copy and set source = \"" + pinned + "\" and version = \"" + current.version() + "\"", diff);
+	}
+
+	/**
+	 * Explains why the referenced element is missing: the type itself, or only the member, possibly with other signatures that do
+	 * exist. At the baseline that is a broken reference, so it also suggests how to fix source.
+	 */
+	private String notFound(CopiedCodeReference ref, Gav gav, Path jar, boolean atBaseline) {
+		SourceRef source = ref.source();
+		String message = source + " not found in sources of " + gav;
+		if (source.member() == null) {
+			return message;
+		}
+		if (!upstreamSources.containsType(jar, source)) {
+			return message + ", type " + source.typeName() + " does not exist there";
+		}
+		List<String> signatures = upstreamSources.signatures(jar, source);
+		if (signatures.isEmpty()) {
+			return message + ", " + source.simpleName() + (source.member().isConstructor() ? " declares no constructor"
+				: " has no member named '" + source.member().name() + "'");
+		}
+		String declared = ", " + source.simpleName() + " declares " + String.join(", ", signatures) + " only";
+		if (!atBaseline) {
+			return message + declared;
+		}
+		String hint = "; set source = \"" + source.typeName() + "#" + signatures.getFirst() + "\"";
+		if (ref.derivedMember()) {
+			return message + ": source names the type only, so the signature of the local copy is looked up, but " + source.simpleName()
+				+ " declares " + String.join(", ", signatures) + hint + " to name the upstream member";
+		}
+		return message + declared + hint;
 	}
 
 	/**

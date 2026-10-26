@@ -74,12 +74,36 @@ class UpstreamSources {
 	 * @throws UpstreamException         if the jar cannot be read or the source file cannot be parsed
 	 */
 	Optional<Node> find(Path sourcesJar, SourceRef source) {
-		Optional<TypeDeclaration<?>> type = cache.computeIfAbsent(new Key(sourcesJar, source.typeName()), k -> locate(sourcesJar, source))
-			.flatMap(UpstreamSources::resolveType);
+		Optional<TypeDeclaration<?>> type = type(sourcesJar, source);
 		if (type.isEmpty() || source.member() == null) {
 			return type.map(Node.class::cast);
 		}
 		return findMember(type.get(), source.member());
+	}
+
+	/**
+	 * Whether the jar contains the referenced type, regardless of the member.
+	 */
+	boolean containsType(Path sourcesJar, SourceRef source) {
+		return type(sourcesJar, source).isPresent();
+	}
+
+	/**
+	 * The signatures of the methods, constructors or annotation elements named like the referenced member, as they would be
+	 * written in {@code source}; empty if there are none or the type does not exist.
+	 */
+	List<String> signatures(Path sourcesJar, SourceRef source) {
+		if (source.member() == null) {
+			return List.of();
+		}
+		return type(sourcesJar, source)
+			.map(type -> callables(type, source.member()).map(c -> describe(type, source.member(), c)).toList())
+			.orElse(List.of());
+	}
+
+	private Optional<TypeDeclaration<?>> type(Path sourcesJar, SourceRef source) {
+		return cache.computeIfAbsent(new Key(sourcesJar, source.typeName()), k -> locate(sourcesJar, source))
+			.flatMap(UpstreamSources::resolveType);
 	}
 
 	private Optional<Located> locate(Path sourcesJar, SourceRef source) {
@@ -146,11 +170,15 @@ class UpstreamSources {
 		}
 		List<Callable> methods = callables(type, member).toList();
 		if (methods.size() > 1) {
-			throw new InvalidReferenceException("'" + member.name() + "' is overloaded in " + type.getNameAsString()
-				+ ", add the parameter types to source, e.g. " + member.name() + "("
-				+ String.join(", ", methods.getFirst().parameterTypes()) + ")");
+			throw new InvalidReferenceException("'" + member.name() + "' is overloaded in " + type.getNameAsString() + " ("
+				+ methods.stream().map(c -> describe(type, member, c)).collect(Collectors.joining(", "))
+				+ "), add the parameter types to source, e.g. " + type.getNameAsString() + "#" + describe(type, member, methods.getFirst()));
 		}
 		return methods.stream().map(Callable::node).findFirst();
+	}
+
+	private static String describe(TypeDeclaration<?> type, MemberRef member, Callable callable) {
+		return new MemberRef(member.name(), callable.parameterTypes()).describe(type.getNameAsString());
 	}
 
 	/**
