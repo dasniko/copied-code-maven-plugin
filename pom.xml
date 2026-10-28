@@ -68,7 +68,7 @@
 		<maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
 		<maven-site-plugin.version>3.22.0</maven-site-plugin.version>
 		<maven-source-plugin.version>3.4.0</maven-source-plugin.version>
-		<maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+		<maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
 		<maven.compiler.release>21</maven.compiler.release>
 		<!-- lowest supported Maven line; the plugin is compiled against its API -->
 		<maven.version>3.9.16</maven.version>
